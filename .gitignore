@@ -1,0 +1,28 @@
+
+# Python virtual environments
+.venv/
+venv/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# ChromaDB vector indexes
+**/chroma_db/
+
+# Medical documents and local datasets
+mcp-servers/insurance-claims/data/medical_documents/
+mcp-servers/insurance-claims/data/medical_document_manifest.json
