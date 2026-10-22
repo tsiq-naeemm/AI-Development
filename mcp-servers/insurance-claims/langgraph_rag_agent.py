@@ -117,6 +117,46 @@ def format_referral_validation(result: dict) -> str:
     return "\n".join(lines)
 
 
+def get_referral_validation_status(messages) -> str | None:
+    """Extract the validation status from the MCP response."""
+    for message in reversed(messages):
+        if (
+            not isinstance(message, ToolMessage)
+            or message.name != "validate_claim_referral"
+        ):
+            continue
+
+        try:
+            payload = json.loads(message.content)
+
+            if not payload.get("success"):
+                error = payload.get("error", "")
+                if "Invalid claim ID format" in str(error):
+                    return "INVALID_CLAIM_ID"
+                continue
+
+            data = json.loads(payload["result"])
+
+            if not isinstance(data, dict):
+                continue
+
+            if data.get("error") == "CLAIM_NOT_FOUND":
+                return "CLAIM_NOT_FOUND"
+
+            if all(
+                key in data
+                for key in ("claim_id", "overall_finding", "checks")
+            ):
+                status = data["overall_finding"]
+                if status in ("PASS", "REVIEW"):
+                    return status
+
+        except (json.JSONDecodeError, TypeError, KeyError):
+            continue
+
+    return None
+
+
 def get_referral_validation_report(messages) -> str | None:
     """Find the most recent successful validation MCP response."""
     for message in reversed(messages):
@@ -545,6 +585,8 @@ async def main():
                         initial_state,
                         config={"recursion_limit": 13},
                     )
+
+                    validation_status = get_referral_validation_status(result["messages"])
 
                     get_audit_logger().info(
                         "VALIDATION_COMPLETED",
