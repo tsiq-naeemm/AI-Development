@@ -15,6 +15,7 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langgraph.graph import END, START, MessagesState, StateGraph
+from pymupdf import message
 from audit_logger import get_audit_logger, new_request_id, elapsed_ms
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -534,6 +535,8 @@ async def main():
 
             while True:
                 try:
+                    request_id = None
+                    start_time = None
                     question = await asyncio.to_thread(
                         input, "You: "
                     )
@@ -580,7 +583,7 @@ async def main():
                             HumanMessage(content=question),
                         ]
                     }
-
+                    
                     result = await graph.ainvoke(
                         initial_state,
                         config={"recursion_limit": 13},
@@ -612,8 +615,18 @@ async def main():
                     break
 
                 except Exception as exc:
-                    print(f"\nAgent error: {exc}")
+                    if request_id is not None and start_time is not None:                    
+                        get_audit_logger().error(
+                            "VALIDATION_FAILED",
+                            extra={
+                                "request_id": request_id,
+                                "claim_id": claim_id,
+                                "error_code": type(exc).__name__,
+                                "duration_ms": elapsed_ms(start_time),
+                            },
+                        )
 
+                    print(f"\nAgent error: {exc}")
 
 if __name__ == "__main__":
     asyncio.run(main())
