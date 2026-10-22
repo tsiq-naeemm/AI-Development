@@ -26,3 +26,7 @@ __pycache__/
 # Medical documents and local datasets
 mcp-servers/insurance-claims/data/medical_documents/
 mcp-servers/insurance-claims/data/medical_document_manifest.json
+
+# Local audit logs
+**/logs/
+*.log
