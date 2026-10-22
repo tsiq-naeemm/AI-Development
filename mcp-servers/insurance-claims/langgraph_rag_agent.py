@@ -593,6 +593,7 @@ async def main():
                         extra={
                             "request_id": request_id,
                             "claim_id": claim_id,
+                            "validation_status": validation_status,
                             "duration_ms": elapsed_ms(start_time),
                         },
                     )
