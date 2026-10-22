@@ -1,5 +1,6 @@
 
 import asyncio
+import time
 import json
 import re
 import sys
@@ -14,7 +15,7 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langgraph.graph import END, START, MessagesState, StateGraph
-from audit_logger import get_audit_logger, new_request_id
+from audit_logger import get_audit_logger, new_request_id, elapsed_ms
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from ollama import AsyncClient
@@ -531,6 +532,8 @@ async def main():
                         },
                     )
 
+                    start_time = time.perf_counter()
+
                     initial_state = {
                         "messages": [
                             SystemMessage(content=SYSTEM_PROMPT),
@@ -541,6 +544,15 @@ async def main():
                     result = await graph.ainvoke(
                         initial_state,
                         config={"recursion_limit": 13},
+                    )
+
+                    get_audit_logger().info(
+                        "VALIDATION_COMPLETED",
+                        extra={
+                            "request_id": request_id,
+                            "claim_id": claim_id,
+                            "duration_ms": elapsed_ms(start_time),
+                        },
                     )
 
                     final_message = result["messages"][-1]
