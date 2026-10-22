@@ -14,6 +14,7 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langgraph.graph import END, START, MessagesState, StateGraph
+from audit_logger import get_audit_logger, new_request_id
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from ollama import AsyncClient
@@ -512,6 +513,23 @@ async def main():
                             "validate the specialist referral.\n"
                         )
                         continue
+
+                    request_id = new_request_id()
+                    claim_match = re.search(
+                        r"\bCLM\d{3}\b", question, re.I
+                    )
+                    claim_id = (
+                        claim_match.group(0).upper()
+                        if claim_match else None
+                    )
+
+                    get_audit_logger().info(
+                        "VALIDATION_STARTED",
+                        extra={
+                            "request_id": request_id,
+                            "claim_id": claim_id,
+                        },
+                    )
 
                     initial_state = {
                         "messages": [
