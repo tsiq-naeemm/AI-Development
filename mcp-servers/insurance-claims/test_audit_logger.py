@@ -153,6 +153,35 @@ class TestAuditLogger(unittest.TestCase):
         self.assertNotIn("medical_evidence", event)
         self.assertNotIn("patient_name", event)
 
+    def test_ollama_timeout_event(self):
+        """Timeout audit records contain a standardized error code."""
+
+        formatter = audit_logger.JsonAuditFormatter()
+
+        record = audit_logger.logging.LogRecord(
+            name="insurance_claims.audit",
+            level=audit_logger.logging.ERROR,
+            pathname=__file__,
+            lineno=0,
+            msg="VALIDATION_FAILED",
+            args=(),
+            exc_info=None,
+        )
+
+        record.request_id = audit_logger.new_request_id()
+        record.claim_id = "CLM001"
+        record.model = "llama3.2"
+        record.error_code = "OLLAMA_TIMEOUT"
+        record.duration_ms = 120000.0
+
+        event = json.loads(formatter.format(record))
+
+        self.assertEqual(event["event"], "VALIDATION_FAILED")
+        self.assertEqual(event["error_code"], "OLLAMA_TIMEOUT")
+        self.assertEqual(event["model"], "llama3.2")
+        self.assertEqual(event["duration_ms"], 120000.0)
+        self.assertNotIn("error_message", event)
+
 
 if __name__ == "__main__":
     unittest.main()

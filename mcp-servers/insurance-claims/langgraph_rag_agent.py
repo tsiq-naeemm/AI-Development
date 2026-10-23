@@ -620,6 +620,13 @@ async def main():
                     break
 
                 except Exception as exc:
+
+                    error_code = (
+                        "OLLAMA_TIMEOUT"
+                        if isinstance(exc, (TimeoutError, asyncio.TimeoutError))
+                        else type(exc).__name__
+                    )
+
                     if request_id is not None and start_time is not None:                    
                         get_audit_logger().error(
                             "VALIDATION_FAILED",
@@ -627,7 +634,7 @@ async def main():
                                 "request_id": request_id,
                                 "claim_id": claim_id,
                                 "model": MODEL,
-                                "error_code": type(exc).__name__,
+                                "error_code": error_code,
                                 "duration_ms": elapsed_ms(start_time),
                             },
                         )
