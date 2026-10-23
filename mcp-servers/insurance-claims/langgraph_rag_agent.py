@@ -387,8 +387,8 @@ def create_agent(session, ollama, discovered_tools):
             name = call["name"]
             arguments = call["args"]
             call_id = call["id"]
-
-            print(f"[MCP] Requested: {name} {arguments}")
+            
+            print(f"[MCP] Requested tool: {name}")
 
             payload: dict[str, Any] = {
                 "tool": name,
@@ -405,7 +405,7 @@ def create_agent(session, ollama, discovered_tools):
                     # Normalize before schema validation and MCP execution.
                     arguments = normalize_tool_arguments(name, arguments)
                     payload["arguments"] = arguments
-                    print(f"[MCP] Normalized arguments: {arguments}")
+                    print("[MCP] Arguments validated")
 
                     validate(
                         instance=arguments,
@@ -461,7 +461,7 @@ def create_agent(session, ollama, discovered_tools):
 
                 except (ValidationError, ValueError) as exc:
                     payload["error"] = str(exc)
-                    print(f"[MCP] Validation error: {exc}")
+                    print(f"[MCP] Validation error: {type(exc).__name__}")
 
                 except Exception as exc:
                     payload["error"] = str(exc)
