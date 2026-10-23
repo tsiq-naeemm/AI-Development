@@ -456,8 +456,8 @@ def create_agent(session, ollama, discovered_tools):
 
                         if payload["success"]:
                             cache[key] = payload
-
-                        print(f"[MCP] Result: {content}")
+                        
+                        print(f"[MCP] Tool completed: {name}")
 
                 except (ValidationError, ValueError) as exc:
                     payload["error"] = str(exc)
