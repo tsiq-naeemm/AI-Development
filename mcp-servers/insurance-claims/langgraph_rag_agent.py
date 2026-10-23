@@ -465,7 +465,7 @@ def create_agent(session, ollama, discovered_tools):
 
                 except Exception as exc:
                     payload["error"] = str(exc)
-                    print(f"[MCP] Execution error: {exc}")
+                    print(f"[MCP] Execution error: {type(exc).__name__}")
 
             results.append(
                 ToolMessage(
@@ -626,7 +626,7 @@ async def main():
                             },
                         )
 
-                    print(f"\nAgent error: {exc}")
+                    print(f"\nAgent error: {type(exc).__name__}")
 
 if __name__ == "__main__":
     asyncio.run(main())
