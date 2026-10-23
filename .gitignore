@@ -30,3 +30,7 @@ mcp-servers/insurance-claims/data/medical_document_manifest.json
 # Local audit logs
 **/logs/
 *.log
+
+# Local Testing outputs
+out.txt
+*.out
