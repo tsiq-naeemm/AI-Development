@@ -30,6 +30,7 @@ class JsonAuditFormatter(logging.Formatter):
         for field in (
             "request_id",
             "claim_id",
+            "model",
             "validation_status",
             "duration_ms",
             "error_code",

@@ -1,6 +1,7 @@
 
 """Automated tests for structured audit logging."""
 
+from asyncio import events
 import json
 import tempfile
 import unittest
@@ -97,6 +98,7 @@ class TestAuditLogger(unittest.TestCase):
 
             record.request_id = request_id
             record.claim_id = "CLM001"
+            record.model = "llama3.2"
 
             if event_name == "VALIDATION_COMPLETED":
                 record.validation_status = "PASS"
@@ -113,7 +115,8 @@ class TestAuditLogger(unittest.TestCase):
         self.assertEqual(events[1]["claim_id"], "CLM001")
         self.assertEqual(events[1]["validation_status"], "PASS")
         self.assertEqual(events[1]["duration_ms"], 1250.5)
-
+        self.assertEqual(events[0]["model"], "llama3.2")
+        self.assertEqual(events[1]["model"], "llama3.2")
 
     def test_validation_failed_event(self):
         """Failure events contain error metadata without sensitive details."""

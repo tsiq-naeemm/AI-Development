@@ -22,7 +22,10 @@ from mcp.client.stdio import stdio_client
 from ollama import AsyncClient
 
 
-MODEL = "llama3.2"
+# MODEL = "llama3.2"
+MODEL = "ALIENTELLIGENCE/insuranceservices:latest"
+RECURSION_LIMIT = 13
+OLLAMA_TIMEOUT = 120.0
 
 SYSTEM_PROMPT = """You are an insurance claims evidence-review assistant.
 
@@ -518,7 +521,7 @@ async def main():
             await session.initialize()
 
             discovered = await session.list_tools()
-            ollama = AsyncClient()
+            ollama = AsyncClient(timeout=OLLAMA_TIMEOUT)
 
             graph = create_agent(
                 session,
@@ -572,6 +575,7 @@ async def main():
                         extra={
                             "request_id": request_id,
                             "claim_id": claim_id,
+                            "model": MODEL,
                         },
                     )
 
@@ -586,7 +590,7 @@ async def main():
                     
                     result = await graph.ainvoke(
                         initial_state,
-                        config={"recursion_limit": 13},
+                        config={"recursion_limit": RECURSION_LIMIT},
                     )
 
                     validation_status = get_referral_validation_status(result["messages"])
@@ -596,6 +600,7 @@ async def main():
                         extra={
                             "request_id": request_id,
                             "claim_id": claim_id,
+                            "model": MODEL,
                             "validation_status": validation_status,
                             "duration_ms": elapsed_ms(start_time),
                         },
@@ -621,6 +626,7 @@ async def main():
                             extra={
                                 "request_id": request_id,
                                 "claim_id": claim_id,
+                                "model": MODEL,
                                 "error_code": type(exc).__name__,
                                 "duration_ms": elapsed_ms(start_time),
                             },
