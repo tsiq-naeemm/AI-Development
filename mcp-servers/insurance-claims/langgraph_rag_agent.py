@@ -5,6 +5,7 @@ import json
 import re
 import sys
 import httpx
+import math
 from pathlib import Path
 from typing import Any
 
@@ -22,13 +23,54 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from ollama import AsyncClient
 
+def positive_int_env(name: str, default: int) -> int:
+    """Read an environment variable as a positive integer."""
+    raw = os.getenv(name, str(default))
 
-MODEL = os.getenv(
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ValueError(f"{name} must be a positive integer") from None
+
+    if value < 1:
+        raise ValueError(f"{name} must be a positive integer")
+
+    return value
+
+def positive_float_env(name: str, default: float) -> float:
+    """Read an environment variable as a positive, finite float."""
+    raw = os.getenv(name, str(default))
+
+    try:
+        value = float(raw)
+    except ValueError:
+        raise ValueError(
+            f"{name} must be a positive, finite number"
+        ) from None
+
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(
+            f"{name} must be a positive, finite number"
+        )
+
+    return value
+
+def nonempty_string_env(name: str, default: str) -> str:
+    """Read an environment variable as a nonempty string."""
+    value = os.getenv(name, default).strip()
+
+    if not value:
+        raise ValueError(f"{name} must not be empty")
+
+    return value
+
+MODEL = nonempty_string_env(
     "INSURANCE_OLLAMA_MODEL",
     "ALIENTELLIGENCE/insuranceservices:latest",
 )
-RECURSION_LIMIT = int(os.getenv("INSURANCE_RECURSION_LIMIT", "13"))
-OLLAMA_TIMEOUT = float(os.getenv("INSURANCE_OLLAMA_TIMEOUT", "120.0"))
+RECURSION_LIMIT = positive_int_env("INSURANCE_RECURSION_LIMIT", 13)
+OLLAMA_TIMEOUT = positive_float_env("INSURANCE_OLLAMA_TIMEOUT", 120.0)
+
 
 def classify_agent_error(exc: Exception) -> str:
     """Return a safe, standardized error code for audit logging."""
