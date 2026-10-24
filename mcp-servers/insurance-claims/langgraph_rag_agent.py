@@ -4,6 +4,7 @@ import time
 import json
 import re
 import sys
+import httpx
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,12 @@ from ollama import AsyncClient
 MODEL = "ALIENTELLIGENCE/insuranceservices:latest"
 RECURSION_LIMIT = 13
 OLLAMA_TIMEOUT = 120.0
+
+def classify_agent_error(exc: Exception) -> str:
+    """Return a safe, standardized error code for audit logging."""
+    if isinstance(exc, (TimeoutError, httpx.TimeoutException)):
+        return "OLLAMA_TIMEOUT"
+    return type(exc).__name__
 
 SYSTEM_PROMPT = """You are an insurance claims evidence-review assistant.
 
@@ -621,11 +628,7 @@ async def main():
 
                 except Exception as exc:
 
-                    error_code = (
-                        "OLLAMA_TIMEOUT"
-                        if isinstance(exc, (TimeoutError, asyncio.TimeoutError))
-                        else type(exc).__name__
-                    )
+                    error_code = classify_agent_error(exc)
 
                     if request_id is not None and start_time is not None:                    
                         get_audit_logger().error(
