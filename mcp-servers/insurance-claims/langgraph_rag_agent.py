@@ -23,10 +23,12 @@ from mcp.client.stdio import stdio_client
 from ollama import AsyncClient
 
 
-# MODEL = "llama3.2"
-MODEL = "ALIENTELLIGENCE/insuranceservices:latest"
-RECURSION_LIMIT = 13
-OLLAMA_TIMEOUT = 120.0
+MODEL = os.getenv(
+    "INSURANCE_OLLAMA_MODEL",
+    "ALIENTELLIGENCE/insuranceservices:latest",
+)
+RECURSION_LIMIT = int(os.getenv("INSURANCE_RECURSION_LIMIT", "13"))
+OLLAMA_TIMEOUT = float(os.getenv("INSURANCE_OLLAMA_TIMEOUT", "120.0"))
 
 def classify_agent_error(exc: Exception) -> str:
     """Return a safe, standardized error code for audit logging."""
