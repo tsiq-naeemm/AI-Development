@@ -445,5 +445,71 @@ class TestSystemHealth(unittest.IsolatedAsyncioTestCase):
             "HEALTHY",
         )
 
+    def test_agent_startup_missing_model(self):
+        """Agent must reject an unavailable Ollama model at startup."""
+
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        env = os.environ.copy()
+        env["INSURANCE_OLLAMA_MODEL"] = (
+            "nonexistent-startup-test:latest"
+        )
+
+        agent_path = Path(__file__).with_name(
+            "langgraph_rag_agent.py"
+        )
+
+        completed = subprocess.run(
+            [sys.executable, str(agent_path)],
+            env=env,
+            input="exit\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn(
+            "Startup check failed: Ollama status = MODEL_NOT_FOUND",
+            completed.stdout,
+        )
+        self.assertNotIn("You:", completed.stdout)
+        self.assertNotIn("Traceback", completed.stderr)
+
+    def test_agent_startup_healthy(self):
+        """Agent starts and exits cleanly when dependencies are healthy."""
+
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        env = os.environ.copy()
+        env["INSURANCE_OLLAMA_MODEL"] = (
+            "ALIENTELLIGENCE/insuranceservices:latest"
+        )
+
+        agent_path = Path(__file__).with_name(
+            "langgraph_rag_agent.py"
+        )
+
+        completed = subprocess.run(
+            [sys.executable, str(agent_path)],
+            env=env,
+            input="exit\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        self.assertEqual(completed.returncode, 0)
+        self.assertIn("LOCAL LANGGRAPH INSURANCE AGENT", completed.stdout)
+        self.assertIn("MCP tools: 6", completed.stdout)
+        self.assertIn("Agent stopped.", completed.stdout)
+        self.assertNotIn("Traceback", completed.stderr)
+
 if __name__ == "__main__":
     unittest.main()
