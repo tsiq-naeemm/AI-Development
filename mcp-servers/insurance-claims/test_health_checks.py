@@ -379,6 +379,71 @@ class TestSystemHealth(unittest.IsolatedAsyncioTestCase):
             "HEALTHY",
         )
 
+    def test_cli_degraded_exit_code(self):
+        """CLI exits with code 1 when system health is degraded."""
+
+        import os
+        import subprocess
+        import sys
+
+        env = os.environ.copy()
+        env["INSURANCE_OLLAMA_MODEL"] = (
+            "nonexistent-health-test-model:latest"
+        )
+
+        completed = subprocess.run(
+            [sys.executable, "health_checks.py"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        self.assertEqual(completed.returncode, 1)
+
+        import json
+        result = json.loads(completed.stdout)
+
+        self.assertEqual(result["status"], "DEGRADED")
+        self.assertEqual(
+            result["services"]["ollama"]["status"],
+            "MODEL_NOT_FOUND",
+        )
+
+    def test_cli_healthy_exit_code(self):
+        """CLI exits with code 0 when both services are healthy."""
+
+        import json
+        import os
+        import subprocess
+        import sys
+
+        env = os.environ.copy()
+        env["INSURANCE_OLLAMA_MODEL"] = (
+            "ALIENTELLIGENCE/insuranceservices:latest"
+        )
+
+        completed = subprocess.run(
+            [sys.executable, "health_checks.py"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        self.assertEqual(completed.returncode, 0)
+
+        result = json.loads(completed.stdout)
+
+        self.assertEqual(result["status"], "HEALTHY")
+        self.assertEqual(
+            result["services"]["ollama"]["status"],
+            "HEALTHY",
+        )
+        self.assertEqual(
+            result["services"]["mcp"]["status"],
+            "HEALTHY",
+        )
 
 if __name__ == "__main__":
     unittest.main()

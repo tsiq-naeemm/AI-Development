@@ -1,3 +1,5 @@
+from unittest import result
+
 from ollama import AsyncClient
 import sys
 from pathlib import Path
@@ -36,7 +38,6 @@ async def check_ollama_health(
         ),
         "model": model_name,
     }
-
 
 async def check_mcp_health() -> dict:
     """Check MCP server connectivity and required tool availability."""
@@ -110,4 +111,20 @@ async def check_system_health(
     }
 
 
+if __name__ == "__main__":
+    import asyncio
+    import json
+
+    from langgraph_rag_agent import MODEL, OLLAMA_TIMEOUT
+
+    async def main():
+        result = await check_system_health(
+            model_name=MODEL,
+            timeout=OLLAMA_TIMEOUT,
+        )
+        print(json.dumps(result, indent=2))
+        return 0 if result["status"] == "HEALTHY" else 1
+
+    
+    raise SystemExit(asyncio.run(main()))
 
