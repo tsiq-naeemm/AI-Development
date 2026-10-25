@@ -1,5 +1,6 @@
 
 import sqlite3
+import os
 from pathlib import Path
 
 import chromadb
@@ -8,8 +9,8 @@ from ollama import Client
 
 
 ROOT = Path(__file__).resolve().parent
-DB_PATH = ROOT / "data" / "insurance_claims.db"
-CHROMA_PATH = ROOT / "data" / "chroma_db"
+DB_PATH = Path(os.getenv("INSURANCE_DB_PATH", str(ROOT / "data/insurance_claims.db")))
+CHROMA_PATH = Path(os.getenv("INSURANCE_CHROMA_PATH", str(ROOT / "data/chroma_db")))
 
 COLLECTION_NAME = "insurance_medical_documents"
 EMBED_MODEL = "embeddinggemma"
@@ -72,6 +73,10 @@ def extract_chunks(documents):
     records = []
 
     for document in documents:
+        # Dynamic PDFs are managed by pdf_ingestion.py, including page metadata
+        # and the SQLite completion gate. Do not bypass it on a legacy rebuild.
+        if document["document_type"] == "pdf":
+            continue
         pdf_path = ROOT / document["file_path"]
 
         if not pdf_path.is_file():
@@ -141,17 +146,9 @@ def main():
         path=str(CHROMA_PATH)
     )
 
-    # Rebuild this dedicated collection from scratch.
-    # Other ChromaDB collections are left untouched.
-    try:
-        chroma.delete_collection(COLLECTION_NAME)
-    except chromadb.errors.NotFoundError:
-        pass
-
-    collection = chroma.create_collection(
-        name=COLLECTION_NAME,
-        metadata={"hnsw:space": "cosine"},
-    )
+    # Incrementally refresh registered legacy documents. Never drop a collection.
+    collection = chroma.get_or_create_collection(
+        name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
 
     for start in range(0, len(records), BATCH_SIZE):
         batch = records[start:start + BATCH_SIZE]
@@ -163,7 +160,7 @@ def main():
             input=texts,
         )
 
-        collection.add(
+        collection.upsert(
             ids=[item["id"] for item in batch],
             documents=texts,
             embeddings=response.embeddings,

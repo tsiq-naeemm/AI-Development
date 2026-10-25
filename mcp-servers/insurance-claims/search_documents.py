@@ -13,51 +13,15 @@ EMBED_MODEL = "embeddinggemma"
 
 
 def search_documents(question, claim_id=None, top_k=5):
-    chroma = chromadb.PersistentClient(
-        path=str(CHROMA_PATH)
-    )
-
-    collection = chroma.get_collection(
-        name=COLLECTION_NAME
-    )
-
-    ollama = Client()
-
-    query_embedding = ollama.embed(
-        model=EMBED_MODEL,
-        input=question,
-    ).embeddings[0]
-
-    filters = (
-        {"claim_id": claim_id}
-        if claim_id else None
-    )
-
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=min(top_k, collection.count()),
-        where=filters,
-        include=[
-            "documents",
-            "metadatas",
-            "distances",
-        ],
-    )
-
-    matches = []
-
-    for text, metadata, distance in zip(
-        results["documents"][0],
-        results["metadatas"][0],
-        results["distances"][0],
-    ):
-        matches.append({
-            "text": text,
-            "metadata": metadata,
-            "distance": distance,
-        })
-
-    return matches
+    from rag_server import search_medical_documents
+    result = search_medical_documents(claim_id, question, top_k)
+    if 'error' in result:
+        raise ValueError(result['error'])
+    return [{'text': p['text'], 'distance': p['cosine_distance'],
+             'metadata': {'claim_id': p['claim_id'], 'document_id': p['document_id'],
+                          'document_type': p['document_type'], 'document_date': p['document_date'],
+                          'page': p['page'], 'file_path': p['source']}}
+            for p in result['results']]
 
 
 def main():
@@ -77,7 +41,7 @@ def main():
                 continue
 
             claim_id = input(
-                "Claim ID (optional): "
+                "Claim ID (required): "
             ).strip().upper() or None
 
             matches = search_documents(

@@ -125,7 +125,7 @@ def format_referral_validation(result: dict) -> str:
     )
     lines = [f"Claim: {claim_id}", f"Overall finding: {overall}"]
     for key, label in labels:
-        check = checks[key]
+        check = checks.get(key, {"finding": "REVIEW", "explanation": "Evidence unavailable."})
         lines.append(f"{label}: {check['finding']} - {check['explanation']}")
 
     date = checks["referral_date"]
@@ -144,7 +144,7 @@ def format_referral_validation(result: dict) -> str:
     else:
         reasons = []
         for key, label in labels:
-            check = checks[key]
+            check = checks.get(key, {"finding": "REVIEW", "explanation": "Evidence unavailable."})
             if check["finding"] == "PASS":
                 continue
             if key == "anatomy" and check.get("referral_anatomy") and check.get("treatment_anatomy"):
@@ -168,6 +168,13 @@ def format_referral_validation(result: dict) -> str:
         f"Conclusion: {conclusion}",
         f"Note: {result.get('note', 'Evidence validation only; not an insurance approval or denial.')}",
     ])
+    for issue in result.get("incomplete_ingestions", []):
+        lines.append(f"Incomplete ingestion: {issue['document_id']} ({issue['status']}): {issue['error']}")
+    if "evidence_quality" in checks:
+        lines.append(f"Evidence quality: {checks['evidence_quality']['explanation']}")
+    for citation in result.get("citations", []):
+        lines.append(f"Evidence: {citation['document_id']}, {Path(citation['source']).name}, "
+                     f"page {citation['page']}: {citation['text']}")
     return "\n".join(lines)
 
 

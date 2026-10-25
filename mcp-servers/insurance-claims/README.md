@@ -1,6 +1,6 @@
 # Insurance Claims AI Assistant
 
-**Version 1.0 — Local MCP + LangGraph + RAG Prototype**
+**Version 2.0 — General PDF Ingestion · Local MCP + LangGraph + RAG Prototype**
 
 ## Overview
 
@@ -28,7 +28,11 @@ LangGraph Agent (langgraph_rag_agent.py)
         |
         v
       MCP Server (rag_server.py)
-        +-- SQLite claim information
+        +-- SQLite claim information and completed PDF registrations
+        +-- Local PDF ingestion CLI (pdf_ingestion.py)
+        |     +-- PyMuPDF page extraction / Tesseract OCR
+        |     +-- Content hashing and incremental Ollama embeddings
+        |     +-- SQLite ingestion completion gate
         +-- ChromaDB vector retrieval
         |     +-- Indexed medical PDF documents
         +-- Deterministic referral validator
@@ -56,6 +60,7 @@ Additional components:
 | ChromaDB | Medical-document semantic retrieval |
 | SQLite | Structured insurance claim data |
 | PyMuPDF | PDF document processing |
+| Tesseract 5 (Homebrew) | Local English OCR for scanned/image pages |
 | JSON Schema | Tool argument validation |
 | HTTPX | HTTP communication and timeout handling |
 | unittest | Automated testing |
@@ -92,7 +97,10 @@ The tested configuration uses local inference without a hosted language-model AP
 | `langgraph_rag_agent.py` | Primary interactive AI agent |
 | `rag_server.py` | MCP server exposing insurance and medical-document tools |
 | `referral_validator.py` | Deterministic specialist-referral validation |
-| `build_vector_index.py` | Builds the medical-document vector index |
+| `build_vector_index.py` | Incrementally refreshes the legacy medical-document index |
+| `pdf_ingestion.py` | General PDF ingestion API and CLI |
+| `demo_pdf_ingestion.py` | Isolated integration demonstration with real local services |
+| `test_pdf_ingestion.py` | Synthetic PDF, OCR, failure recovery and claim-isolation tests |
 | `generate_medical_documents.py` | Generates synthetic medical documents |
 | `init_database.py` | Initializes the prototype claim database |
 | `health_checks.py` | Operational health checks and CLI |
@@ -241,6 +249,182 @@ Specialist: PASS
 
 The referral concerns the **LEFT ankle**, while treatment concerns the **RIGHT ankle**. Manual clarification is required.
 
+
+## Version 2.0: Ingest a Previously Unseen PDF
+
+Activate the existing Python 3.12 environment from this project directory:
+
+```bash
+cd ~/AI-Development/mcp-servers/insurance-claims
+source ../../.venv/bin/activate
+```
+
+The only new runtime dependency is the local Tesseract executable. No Python package
+was added. On Apple Silicon macOS:
+
+```bash
+brew install tesseract
+tesseract --version
+ollama list
+```
+
+`embeddinggemma` must already be installed in the running local Ollama service.
+The Homebrew Tesseract package includes English language data. OCR is performed
+locally through Tesseract's stdin/stdout interface; no hosted OCR or inference is used.
+See the [Tesseract command-line documentation](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html).
+
+Ingest any local PDF path, explicitly associating it with an **existing** claim:
+
+```bash
+python pdf_ingestion.py "/absolute/path/new-medical-document.pdf" --claim-id CLM001
+```
+
+No predefined filename or PDF template is required for ingestion or search. Claim IDs
+are normalized to uppercase and must follow `CLM` plus three digits, matching an
+existing SQLite `claims` row. Ingestion never creates a claim or trusts an ID inside
+the PDF to select its owner. One identical PDF may be explicitly attached to two
+claims; each attachment has separate claim-scoped IDs and vectors.
+
+A successful JSON response reports `complete`, the document ID, page/chunk counts,
+and OCR page numbers. Repeating identical bytes for the same claim, including after
+renaming the file, returns `duplicate` without adding vectors or registrations.
+Changed PDF bytes create a distinct document; both versions remain available and
+multiple referral/treatment candidates require manual pairing.
+
+### Extraction and indexing
+
+- PyMuPDF extracts selectable text page by page. Pages with insufficient or broken
+  text, and pages containing raster images alongside selectable text, are rendered
+  at 300 DPI and OCRed in full with English Tesseract. This covers mixed PDFs and
+  scanned evidence beneath selectable headers.
+- Every page must yield usable text. Blank, unreadable, corrupted and locked PDFs
+  fail explicitly, with the original page number where applicable. A blank page is
+  conservatively treated as incomplete extraction, rather than silently skipped.
+- Text uses the existing 800-character chunks with 150-character overlap.
+  `embeddinggemma` supplies embeddings to the existing
+  `insurance_medical_documents` Chroma collection via stable-ID upserts.
+- Metadata includes claim/document IDs, SHA-256, source filename and absolute path,
+  original one-based PDF page, extraction method, title, and detected type/date.
+- SQLite's existing `claim_documents` table is retained. A lazily created
+  `pdf_ingestions` table records pending, failed and completed jobs, counts, source
+  hashes and actionable extraction errors. Existing registrations remain intact.
+- All vectors are written before SQLite publishes the registration and completion
+  together. Interrupted/failed vectors remain unpublished and are excluded by
+  backend retrieval. Retrying the same PDF safely upserts those same IDs. Writers
+  are serialized by SQLite; this is a synchronous local prototype.
+- Failed/pending jobs are disclosed as `incomplete_ingestions`, and prevent a
+  confident validation `PASS` for that claim. Retry the same PDF after fixing the
+  missing OCR/model/service. No automatic cleanup deletes prior data.
+
+Missing files or unreadable filesystem paths are rejected before a content hash/job
+can be created. Such requests return an error immediately and must be resubmitted;
+they do not register an empty document. SQLite/index outages also surface as errors.
+Original PDFs are read only; the index retains extracted text and source hashes,
+but does not make archival PDF copies. Keep source files for later human review.
+
+### Retrieval and deterministic findings
+
+All six MCP tool names/signatures remain available. Ingestion is a local CLI/API,
+so existing LangGraph tool discovery and health checks need no orchestration changes.
+A running MCP process reads completed registrations on each call and can see newly
+ingested PDFs without restarting or rebuilding the collection.
+
+Use the interactive agent:
+
+```bash
+python langgraph_rag_agent.py
+```
+
+Example questions:
+
+```text
+Find medical evidence about right knee treatment for CLM001.
+Validate the specialist referral for CLM001.
+```
+
+For direct local search or deterministic validation:
+
+```bash
+python search_documents.py
+python -c 'import json; from rag_server import validate_claim_referral; print(json.dumps(validate_claim_referral("CLM001"), indent=2))'
+```
+
+The standalone search now also requires a claim ID. Backend retrieval checks claim
+existence and restricts results to that claim's registered, completed documents;
+semantic queries apply these restrictions in Chroma itself. No unfiltered medical
+search is exposed by these workflows.
+
+Findings retain document IDs and add `citations` containing real source paths,
+original page numbers, passage text, chunk IDs, claim IDs and extraction methods.
+The deterministic agent formatter displays filename/page/text citations without
+LLM rewriting. Citations identify the evidence examined; they are not independent
+proof of clinical correctness.
+
+General PDF ingestion does **not** imply general clinical-language understanding.
+For dynamic pages, conservative rules recognize explicit `Document type: Referral`
+or `Document type: Treatment` labels, or matching headings; dates require an
+unambiguous valid ISO `Document date`, `Referral date`, or `Treatment date` label.
+For example, this supported evidence is sufficient to exercise the existing rules:
+
+```text
+Document type: Referral
+Document date: 2026-01-05
+Issued by Dr. A. Malik, Orthopaedic Specialist
+I refer this fictional patient for RIGHT knee physiotherapy.
+```
+
+A corresponding treatment page can contain:
+
+```text
+Document type: Treatment
+Document date: 2026-01-09
+Physiotherapy commenced for RIGHT knee rehabilitation.
+```
+
+Unknown layouts remain indexed/searchable and produce `REVIEW` when the rules cannot
+establish the needed facts. No dates, authors or roles are inferred by an LLM.
+Different page types/dates within one packet can participate separately. Missing or
+conflicting dates, multiple candidates, ambiguous anatomy or specialist identities
+require review. The existing specialist check still recognizes named orthopaedic
+specialists in `Issued by Dr. ..., Orthopaedic Specialist` form; anatomy support
+remains knee/shoulder/ankle with LEFT/RIGHT laterality. Existing Version 1 date-check
+`FAIL` semantics for a late referral remain unchanged.
+
+OCR passages always require manual transcription verification and prevent an overall
+`PASS`, even when the remaining deterministic checks succeed. English printed text
+is tested; handwriting, low-resolution scans, tables, unusual encodings and other
+languages may need better source documents. Text usability checks are heuristics,
+not a clinical completeness guarantee. All uncertainty remains a human review task.
+
+### Isolated storage and Version 2.0 verification
+
+Both MCP retrieval and ingestion honor optional absolute paths:
+
+```bash
+export INSURANCE_DB_PATH="/absolute/path/test/claims.db"
+export INSURANCE_CHROMA_PATH="/absolute/path/test/chroma"
+```
+
+The selected SQLite database must already contain the claims table and target claim.
+Leave these variables unset to use the existing `data/` paths. Never point an
+isolated test at the demonstration database. The new tests create their own claims,
+PDFs, database and Chroma directory under temporary storage.
+
+Run the new automated suite (actual Tesseract and Chroma, fake embeddings; no Ollama
+needed) and the real-service demonstration:
+
+```bash
+python -m unittest test_pdf_ingestion -v
+python demo_pdf_ingestion.py
+```
+
+The demonstration uses actual local Ollama embeddings, Chroma, MCP stdio and the
+existing LangGraph workflow. It verifies text/scanned ingestion, duplicate handling,
+SQLite registration, cross-claim isolation, deterministic findings and genuine page
+citations. It also compares the original claims, registrations, PDF hashes and
+vector contents before/after. Temporary synthetic demonstration storage is removed
+when it completes. Existing test commands below still run the full Version 1 suite.
+
 ## Audit Logging
 
 Structured JSON Lines audit records are stored in:
@@ -263,7 +447,13 @@ A `HEALTHY` result verifies connectivity and tool availability, **not** clinical
 
 ## Automated Tests
 
-The final version 1.0 checkpoint passed **42 automated tests**.
+The Version 2.0 verification passed all **42 existing Version 1 tests** and
+**26 new PDF ingestion tests** (68 total). The separate real-service demonstration
+also passed: actual Ollama embeddings, MCP retrieval, LangGraph validation, OCR,
+claim isolation and citations. Original demonstration claims, 15 document
+registrations/PDFs and 15 vectors were compared with their pre-change snapshot and
+remained unchanged. New tests additionally verify that incremental ingestion and
+the legacy index builder preserve each other's indexed documents.
 
 | Test module | Tests |
 |---|---:|
@@ -301,10 +491,10 @@ End-to-end and certain health-check tests require the appropriate local services
 - Insurance rules vary by policy, jurisdiction, and claim type.
 - Local execution alone does not ensure complete security, access control, or regulatory compliance.
 - Real patient information would require further privacy, security, governance, and compliance safeguards.
-- Regenerating synthetic data and the vector index relies on the project's existing preparation scripts.
+- The legacy index builder now upserts registered legacy documents without deleting the collection. Dynamic PDFs must use the ingestion CLI.
 
 ## Version 1.0 Completion Criteria
 
 The agreed prototype demonstration goals have been verified: local LLM-based agent execution, MCP integration, SQLite claim-data access, ChromaDB medical-document retrieval, deterministic specialist-referral validation, evidence-grounded reporting, JSON audit logging, configurable execution, health checks, automated regressions, and interactive demonstrations of CLM001–CLM004.
 
-**Status: Version 1.0 prototype functionality verified.**
+**Version 1.0 functionality is retained in Version 2.0.**

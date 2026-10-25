@@ -2,6 +2,7 @@
 Run as a stdio MCP server, not directly as a terminal prompt.
 """
 import json
+import os
 import re
 import sqlite3
 from pathlib import Path
@@ -15,10 +16,12 @@ from referral_validator import (
 )
 
 ROOT = Path(__file__).resolve().parent
-DB_PATH = ROOT / 'data' / 'insurance_claims.db'
-CHROMA_PATH = ROOT / 'data' / 'chroma_db'
+DB_PATH = Path(os.getenv('INSURANCE_DB_PATH', str(ROOT / 'data/insurance_claims.db')))
+CHROMA_PATH = Path(os.getenv('INSURANCE_CHROMA_PATH', str(ROOT / 'data/chroma_db')))
 COLLECTION_NAME = 'insurance_medical_documents'
 EMBED_MODEL = 'embeddinggemma'
+
+from pdf_ingestion import require_claim, normalize_claim, ingestion_state
 
 server = MCPServer('InsuranceClaimsRAG')
 
@@ -72,16 +75,11 @@ def get_claim_medical_evidence(claim_id: str) -> dict:
     Unlike semantic search, this returns every matching
     passage without similarity ranking.
     """
-    claim_id = claim_id.strip().upper()
-
-    if not (
-        len(claim_id) == 6
-        and claim_id.startswith("CLM")
-        and claim_id[3:].isdigit()
-    ):
-        raise ValueError(
-            "Invalid claim ID. Expected format: CLM001"
-        )
+    with connect_db() as conn:
+        claim_id = require_claim(conn, claim_id)
+        allowed, incomplete = ingestion_state(conn, claim_id)
+    if not allowed:
+        return {"claim_id": claim_id, "passage_count": 0, "results": [], "incomplete_ingestions": incomplete}
 
     collection = get_collection()
 
@@ -97,7 +95,11 @@ def get_claim_medical_evidence(claim_id: str) -> dict:
         records["documents"],
         records["metadatas"],
     ):
+        if metadata.get("claim_id") != claim_id or metadata.get("document_id") not in allowed:
+            continue
         results.append({
+            "claim_id": claim_id,
+            "extraction_method": metadata.get("extraction_method", "text"),
             "chunk_id": chunk_id,
             "document_id": metadata["document_id"],
             "document_type": metadata["document_type"],
@@ -112,12 +114,13 @@ def get_claim_medical_evidence(claim_id: str) -> dict:
             item["document_date"],
             item["document_id"],
             item["page"],
-            item["chunk_id"],
+            int(item["chunk_id"].rsplit("-C", 1)[-1]),
         )
     )
 
     return {
         "claim_id": claim_id,
+        "incomplete_ingestions": incomplete,
         "passage_count": len(results),
         "results": results,
     }
@@ -128,54 +131,39 @@ def search_medical_documents(claim_id: str, question: str, top_k: int = 5) -> di
     include referral, treatment and consultation documents. Never infer that missing
     evidence proves a referral did not exist outside the supplied records.
     """
-    claim_id = claim_id.strip().upper()
     if not question.strip():
         return {'error': 'Question cannot be empty'}
     if not 1 <= top_k <= 15:
         return {'error': 'top_k must be between 1 and 15'}
+    claim_id = normalize_claim(claim_id)
     with connect_db() as conn:
-        claim = conn.execute('SELECT claim_id FROM claims WHERE claim_id = ?', (claim_id,)).fetchone()
-        if not claim:
+        if not conn.execute('SELECT 1 FROM claims WHERE claim_id=?', (claim_id,)).fetchone():
             return {'error': f'Claim {claim_id} not found'}
-        registered = [dict(r) for r in conn.execute(
-            'SELECT document_id, document_type, document_date, file_path FROM claim_documents WHERE claim_id = ? ORDER BY document_id',
-            (claim_id,)).fetchall()]
-    if not registered:
-        return {'claim_id': claim_id, 'registered_document_count': 0, 'results': [], 'warning': 'No registered documents for this claim'}
-    if not CHROMA_PATH.exists():
-        return {'error': 'ChromaDB index missing. Run build_vector_index.py'}
-    collection = chromadb.PersistentClient(path=str(CHROMA_PATH)).get_collection(COLLECTION_NAME)
-    indexed_count = collection.get(where={'claim_id': claim_id}, include=[])['ids']
-    if not indexed_count:
-        return {'error': f'No indexed passages for {claim_id}. Rebuild vector index.'}
-    embedding = Client().embed(model=EMBED_MODEL, input=question).embeddings[0]
-    results = collection.query(
-        query_embeddings=[embedding],
-        n_results=min(top_k, len(indexed_count)),
-        where={'claim_id': claim_id},
-        include=['documents', 'metadatas', 'distances'],
-    )
+        allowed, incomplete = ingestion_state(conn, claim_id)
+    if not allowed:
+        return {'claim_id': claim_id, 'registered_document_count': 0, 'results': [],
+                'incomplete_ingestions': incomplete, 'warning': 'No completely ingested documents for this claim'}
+    collection = get_collection()
+    filters = {'$and': [{'claim_id': claim_id}, {'document_id': {'$in': sorted(allowed)}}]}
+    indexed = collection.get(where=filters, include=[])['ids']
+    if not indexed:
+        return {'claim_id': claim_id, 'results': [], 'error': 'No indexed passages available', 'incomplete_ingestions': incomplete}
+    embedding = Client(timeout=120).embed(model=EMBED_MODEL, input=question).embeddings[0]
+    results = collection.query(query_embeddings=[embedding], n_results=min(top_k, len(indexed)),
+                               where=filters, include=['documents', 'metadatas', 'distances'])
     passages = []
-    for chunk_id, content, meta, distance in zip(
-        results['ids'][0], results['documents'][0], results['metadatas'][0], results['distances'][0]
-    ):
-        passages.append({
-            'chunk_id': chunk_id,
-            'document_id': meta['document_id'],
-            'document_type': meta['document_type'],
-            'document_date': meta['document_date'],
-            'page': meta['page'],
-            'source': meta['file_path'],
-            'text': content,
-            'cosine_distance': round(float(distance), 4),
-        })
-    return {
-        'claim_id': claim_id,
-        'registered_document_count': len(registered),
-        'indexed_passage_count': len(indexed_count),
-        'results': passages,
-        'note': 'Semantic similarity ranks passages; it does not establish referral validity. Cite document_id and page. For validation, compare referral and treatment dates, anatomy and specialist, and disclose missing/conflicting evidence.',
-    }
+    for chunk_id, content, meta, distance in zip(results['ids'][0], results['documents'][0],
+                                                results['metadatas'][0], results['distances'][0]):
+        if meta.get('claim_id') != claim_id or meta.get('document_id') not in allowed:
+            continue
+        passages.append({'claim_id': claim_id, 'chunk_id': chunk_id, 'document_id': meta['document_id'],
+                         'document_type': meta['document_type'], 'document_date': meta['document_date'],
+                         'page': meta['page'], 'source': meta['file_path'], 'text': content,
+                         'extraction_method': meta.get('extraction_method', 'text'),
+                         'cosine_distance': round(float(distance), 4)})
+    return {'claim_id': claim_id, 'registered_document_count': len(allowed),
+            'indexed_passage_count': len(indexed), 'results': passages, 'incomplete_ingestions': incomplete,
+            'note': 'Similarity does not establish referral validity. Cite document_id and page; missing evidence may exist elsewhere.'}
 
 
 @server.tool()
@@ -184,7 +172,7 @@ def validate_claim_referral(claim_id: str) -> dict:
 
     Findings concern the indexed evidence only; they are not coverage decisions.
     """
-    claim_id = claim_id.strip().upper()
+    claim_id = normalize_claim(claim_id)
     with connect_db() as conn:
         claim = conn.execute(
             "SELECT 1 FROM claims WHERE claim_id = ?", (claim_id,)
@@ -199,21 +187,18 @@ def validate_claim_referral(claim_id: str) -> dict:
     evidence = get_claim_medical_evidence(claim_id)
     claim_id = evidence["claim_id"]
     passages = evidence["results"]
-    if not passages:
-        return {"claim_id": claim_id, "overall_finding": "REVIEW",
-                "explanation": "No indexed medical evidence available.", "checks": {}}
 
     grouped = {}
     for passage in passages:
-        key = passage["document_id"]
+        key = (passage["document_id"], passage["document_type"], passage["document_date"])
         if key not in grouped:
-            grouped[key] = {"type": passage["document_type"].strip().lower(),
-                            "date": passage["document_date"], "texts": [], "pages": []}
+            grouped[key] = {"document_id": passage["document_id"], "type": passage["document_type"].strip().lower(),
+                            "date": passage["document_date"], "texts": [], "pages": [], "dynamic": "-PDF-" in passage["document_id"]}
         grouped[key]["texts"].append(passage["text"])
         grouped[key]["pages"].append(passage["page"])
 
-    referrals = [(doc_id, doc) for doc_id, doc in grouped.items() if doc["type"] == "referral"]
-    treatments = [(doc_id, doc) for doc_id, doc in grouped.items() if doc["type"] == "treatment"]
+    referrals = [(doc["document_id"], doc) for doc in grouped.values() if doc["type"] == "referral"]
+    treatments = [(doc["document_id"], doc) for doc in grouped.values() if doc["type"] == "treatment"]
     checks = {"referral_presence": validate_referral_presence([d["type"] for d in grouped.values()])}
 
     def review(message):
@@ -232,13 +217,16 @@ def validate_claim_referral(claim_id: str) -> dict:
     else:
         referral_id, referral = referrals[0]
         treatment_id, treatment = treatments[0]
-        checks["referral_date"] = validate_referral_date(referral["date"], treatment["date"])
+        try:
+            checks["referral_date"] = validate_referral_date(referral["date"], treatment["date"])
+        except (ValueError, TypeError):
+            checks["referral_date"] = review("Document dates are missing, ambiguous or invalid.")
         anatomy_pattern = re.compile(r"\b(LEFT|RIGHT)\s+(knee|shoulder|ankle)\b", re.I)
        
         def anatomy(doc, document_type):
             text = " ".join(doc["texts"])
 
-            if document_type == "treatment":
+            if document_type == "treatment" and not doc["dynamic"]:
                 match = re.search(
                     r"Physiotherapy commenced for\s+"
                     r"(LEFT|RIGHT)\s+(knee|shoulder|ankle)",
@@ -264,13 +252,23 @@ def validate_claim_referral(claim_id: str) -> dict:
         else:
             referral_id, referral = referrals[0]
             referral_text = " ".join(referral["texts"])
-            match = re.search(r"Issued by\s+(Dr\.?\s+[A-Za-z.\s]+?),\s*(Orthopaedic Specialist|Orthopedic Specialist)", referral_text, re.I)
-            checks["specialist"] = validate_referring_specialist(match.group(1).strip() if match else "", match.group(2).strip() if match else "")
+            matches = re.findall(r"Issued by\s+(Dr\.?\s+[A-Za-z.\s]+?),\s*(Orthopaedic Specialist|Orthopedic Specialist)", referral_text, re.I)
+            unique = set(matches)
+            match = next(iter(unique)) if len(unique) == 1 else None
+            checks["specialist"] = validate_referring_specialist(match[0].strip() if match else "", match[1].strip() if match else "")
             checks["specialist"]["source_document_ids"] = [referral_id]
 
+    checks["referral_presence"]["source_document_ids"] = sorted({r[0] for r in referrals})
+    issues = evidence.get("incomplete_ingestions", [])
+    uncertain = any(p.get("extraction_method") == "ocr" or p["document_type"] == "unknown" for p in passages)
+    if issues or uncertain:
+        checks["evidence_quality"] = review("Incomplete ingestion, OCR transcription, or unclassified evidence requires manual verification.")
     combined = combine_validation_results(checks)
+    if issues or uncertain:
+        combined["overall_finding"] = "REVIEW"
     return {"claim_id": claim_id, "overall_finding": combined["overall_finding"],
-            "checks": combined["checks"], "source_document_ids": sorted(grouped),
+            "checks": combined["checks"], "source_document_ids": sorted({p["document_id"] for p in passages}),
+            "citations": passages, "incomplete_ingestions": issues,
             "note": "Evidence validation only; not an insurance approval or denial. Missing evidence may exist elsewhere."}
 
 
