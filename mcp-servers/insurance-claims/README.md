@@ -448,13 +448,14 @@ A `HEALTHY` result verifies connectivity and tool availability, **not** clinical
 ## Formatting and linting
 
 Black and Flake8 are configured for all Python files in this project, including
-examples and tests. From `~/AI-Development/mcp-servers/insurance-claims`:
+examples and tests. Run these commands from the project directory:
 
 ```bash
+cd ~/AI-Development/mcp-servers/insurance-claims
 source ../../.venv/bin/activate
-python -m pip install -r requirements-dev.txt
-make format
-make lint
+python -m pip install -r requirements-dev.txt  # One-time development setup
+make format  # Apply Black formatting
+make lint    # Check Black formatting and run Flake8
 ```
 
 `make format` applies Black; `make lint` checks formatting without modifying files
