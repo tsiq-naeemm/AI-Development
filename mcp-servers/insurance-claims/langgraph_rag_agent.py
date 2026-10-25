@@ -571,6 +571,27 @@ async def main():
             await session.initialize()
 
             discovered = await session.list_tools()
+            required_tools = {
+                "get_claim_status",
+                "get_claim_amount",
+                "list_open_claims",
+                "get_claim_medical_evidence",
+                "search_medical_documents",
+                "validate_claim_referral",
+            }
+            
+            available_tools = {
+                tool.name for tool in discovered.tools
+            }
+
+            missing_tools = sorted(required_tools - available_tools)
+
+            if missing_tools:
+                print(
+                    "Startup check failed: Missing MCP tools: "
+                    + ", ".join(missing_tools)
+                )
+                return 1
             ollama = AsyncClient(timeout=OLLAMA_TIMEOUT)
 
             ollama_health = await check_ollama_health(
