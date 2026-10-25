@@ -1,14 +1,8 @@
-
 from ollama import chat
 
 response = chat(
     model="llama3.2",
-    messages=[
-        {
-            "role": "user",
-            "content": "What is the status of claim CLM001?"
-        }
-    ],
+    messages=[{"role": "user", "content": "What is the status of claim CLM001?"}],
     tools=[
         {
             "type": "function",
@@ -20,14 +14,14 @@ response = chat(
                     "properties": {
                         "claim_id": {
                             "type": "string",
-                            "description": "Insurance claim identifier"
+                            "description": "Insurance claim identifier",
                         }
                     },
-                    "required": ["claim_id"]
-                }
-            }
+                    "required": ["claim_id"],
+                },
+            },
         }
-    ]
+    ],
 )
 
 print("Tool calls:", response.message.tool_calls)

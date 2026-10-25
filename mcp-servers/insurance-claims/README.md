@@ -445,6 +445,37 @@ Checks cover Ollama connectivity, configured-model availability, MCP server init
 
 A `HEALTHY` result verifies connectivity and tool availability, **not** clinical accuracy, database integrity, or guaranteed successful inference.
 
+## Formatting and linting
+
+Black and Flake8 are configured for all Python files in this project, including
+examples and tests. From `~/AI-Development/mcp-servers/insurance-claims`:
+
+```bash
+source ../../.venv/bin/activate
+python -m pip install -r requirements-dev.txt
+make format
+make lint
+```
+
+`make format` applies Black; `make lint` checks formatting without modifying files
+and runs Flake8. The Makefile defaults to the existing `../../.venv/bin/python`;
+use `make lint PYTHON=/path/to/python` to select another environment.
+Equivalent direct commands are:
+
+```bash
+python -m black .
+python -m black --check .
+python -m flake8 .
+```
+
+Black settings are in `pyproject.toml` (Python 3.12, 88-character target).
+Flake8 settings are in `.flake8`. Data, logs, virtual environments and bytecode
+caches are excluded. Black controls line wrapping; Flake8's E501 and E203 are
+ignored to accommodate long strings/comments and slice formatting, following
+[Black's interoperability guidance](https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html).
+Other default Flake8 checks remain enabled, including unused imports and undefined
+names. Pinned development tool versions are in `requirements-dev.txt`.
+
 ## Automated Tests
 
 The Version 2.0 verification passed all **42 existing Version 1 tests** and

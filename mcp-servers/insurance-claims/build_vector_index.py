@@ -1,4 +1,3 @@
-
 import sqlite3
 import os
 from pathlib import Path
@@ -6,7 +5,6 @@ from pathlib import Path
 import chromadb
 import pymupdf as fitz
 from ollama import Client
-
 
 ROOT = Path(__file__).resolve().parent
 DB_PATH = Path(os.getenv("INSURANCE_DB_PATH", str(ROOT / "data/insurance_claims.db")))
@@ -80,36 +78,34 @@ def extract_chunks(documents):
         pdf_path = ROOT / document["file_path"]
 
         if not pdf_path.is_file():
-            raise FileNotFoundError(
-                f"Missing PDF: {pdf_path}"
-            )
+            raise FileNotFoundError(f"Missing PDF: {pdf_path}")
 
         with fitz.open(pdf_path) as pdf:
             for page_index, page in enumerate(pdf):
                 text = page.get_text("text")
 
-                for chunk_index, chunk in enumerate(
-                    chunk_text(text)
-                ):
+                for chunk_index, chunk in enumerate(chunk_text(text)):
                     chunk_id = (
                         f"{document['document_id']}"
                         f"-P{page_index + 1}"
                         f"-C{chunk_index + 1}"
                     )
 
-                    records.append({
-                        "id": chunk_id,
-                        "text": chunk,
-                        "metadata": {
-                            "document_id": document["document_id"],
-                            "claim_id": document["claim_id"],
-                            "document_type": document["document_type"],
-                            "document_date": document["document_date"],
-                            "title": document["title"],
-                            "file_path": document["file_path"],
-                            "page": page_index + 1,
-                        },
-                    })
+                    records.append(
+                        {
+                            "id": chunk_id,
+                            "text": chunk,
+                            "metadata": {
+                                "document_id": document["document_id"],
+                                "claim_id": document["claim_id"],
+                                "document_type": document["document_type"],
+                                "document_date": document["document_date"],
+                                "title": document["title"],
+                                "file_path": document["file_path"],
+                                "page": page_index + 1,
+                            },
+                        }
+                    )
 
     return records
 
@@ -123,9 +119,7 @@ def main():
     records = extract_chunks(documents)
 
     if not records:
-        raise RuntimeError(
-            "No searchable text extracted from PDFs."
-        )
+        raise RuntimeError("No searchable text extracted from PDFs.")
 
     print(f"Text chunks extracted: {len(records)}")
 
@@ -142,16 +136,15 @@ def main():
     dimension = len(test_embedding.embeddings[0])
     print(f"Embedding dimensions: {dimension}")
 
-    chroma = chromadb.PersistentClient(
-        path=str(CHROMA_PATH)
-    )
+    chroma = chromadb.PersistentClient(path=str(CHROMA_PATH))
 
     # Incrementally refresh registered legacy documents. Never drop a collection.
     collection = chroma.get_or_create_collection(
-        name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
+        name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"}
+    )
 
     for start in range(0, len(records), BATCH_SIZE):
-        batch = records[start:start + BATCH_SIZE]
+        batch = records[start : start + BATCH_SIZE]
 
         texts = [item["text"] for item in batch]
 
@@ -164,14 +157,11 @@ def main():
             ids=[item["id"] for item in batch],
             documents=texts,
             embeddings=response.embeddings,
-            metadatas=[
-                item["metadata"] for item in batch
-            ],
+            metadatas=[item["metadata"] for item in batch],
         )
 
         print(
-            f"Indexed {min(start + BATCH_SIZE, len(records))}"
-            f"/{len(records)} chunks"
+            f"Indexed {min(start + BATCH_SIZE, len(records))}" f"/{len(records)} chunks"
         )
 
     print("\nIndexing completed successfully.")

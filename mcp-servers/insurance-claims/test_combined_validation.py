@@ -1,6 +1,4 @@
-
 from referral_validator import combine_validation_results
-
 
 claim_checks = {
     "CLM001": {
@@ -31,8 +29,7 @@ claim_checks = {
 
 for claim_id, findings in claim_checks.items():
     checks = {
-        check_name: {"finding": finding}
-        for check_name, finding in findings.items()
+        check_name: {"finding": finding} for check_name, finding in findings.items()
     }
 
     result = combine_validation_results(checks)

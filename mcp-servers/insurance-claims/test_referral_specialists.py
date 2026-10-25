@@ -1,9 +1,7 @@
-
 import re
 import chromadb
 
 from referral_validator import validate_referring_specialist
-
 
 client = chromadb.PersistentClient(path="data/chroma_db")
 collection = client.get_collection("insurance_medical_documents")
@@ -45,7 +43,4 @@ for claim_id in ["CLM001", "CLM002", "CLM003", "CLM004"]:
 
     result = validate_referring_specialist(name, specialty)
 
-    print(
-        f"{claim_id}: {result['finding']} "
-        f"- {result['explanation']}"
-    )
+    print(f"{claim_id}: {result['finding']} " f"- {result['explanation']}")

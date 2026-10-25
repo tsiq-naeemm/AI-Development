@@ -1,4 +1,3 @@
-
 import sqlite3
 from pathlib import Path
 
@@ -29,11 +28,14 @@ def initialize_database():
             )
         """)
 
-        conn.executemany("""
+        conn.executemany(
+            """
             INSERT OR IGNORE INTO claims
                 (claim_id, status, amount, currency)
             VALUES (?, ?, ?, ?)
-        """, CLAIMS)
+        """,
+            CLAIMS,
+        )
 
         conn.commit()
 

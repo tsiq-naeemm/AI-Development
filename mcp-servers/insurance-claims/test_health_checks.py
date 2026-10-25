@@ -16,9 +16,7 @@ class TestOllamaHealth(unittest.IsolatedAsyncioTestCase):
         client = mock_client_class.return_value
         client.list = AsyncMock(
             return_value=SimpleNamespace(
-                models=[
-                    SimpleNamespace(model="llama3.2:latest")
-                ]
+                models=[SimpleNamespace(model="llama3.2:latest")]
             )
         )
 
@@ -33,9 +31,7 @@ class TestOllamaHealth(unittest.IsolatedAsyncioTestCase):
         client = mock_client_class.return_value
         client.list = AsyncMock(
             return_value=SimpleNamespace(
-                models=[
-                    SimpleNamespace(model="embeddinggemma:latest")
-                ]
+                models=[SimpleNamespace(model="embeddinggemma:latest")]
             )
         )
 
@@ -46,9 +42,7 @@ class TestOllamaHealth(unittest.IsolatedAsyncioTestCase):
     @patch("health_checks.AsyncClient")
     async def test_server_unavailable(self, mock_client_class):
         client = mock_client_class.return_value
-        client.list = AsyncMock(
-            side_effect=ConnectionError("SIMULATED_FAILURE")
-        )
+        client.list = AsyncMock(side_effect=ConnectionError("SIMULATED_FAILURE"))
 
         result = await check_ollama_health("llama3.2:latest")
 
@@ -78,10 +72,7 @@ class TestMCPHealth(unittest.IsolatedAsyncioTestCase):
         mock_session.__aenter__.return_value = mock_session
 
         mock_session.list_tools.return_value = SimpleNamespace(
-            tools=[
-                SimpleNamespace(name=name)
-                for name in required_tools
-            ]
+            tools=[SimpleNamespace(name=name) for name in required_tools]
         )
 
         with (
@@ -157,6 +148,7 @@ class TestMCPHealth(unittest.IsolatedAsyncioTestCase):
             "SIMULATED_MCP_CONNECTION_FAILURE",
             str(result),
         )
+
 
 class TestSystemHealth(unittest.IsolatedAsyncioTestCase):
 
@@ -387,9 +379,7 @@ class TestSystemHealth(unittest.IsolatedAsyncioTestCase):
         import sys
 
         env = os.environ.copy()
-        env["INSURANCE_OLLAMA_MODEL"] = (
-            "nonexistent-health-test-model:latest"
-        )
+        env["INSURANCE_OLLAMA_MODEL"] = "nonexistent-health-test-model:latest"
 
         completed = subprocess.run(
             [sys.executable, "health_checks.py"],
@@ -402,6 +392,7 @@ class TestSystemHealth(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(completed.returncode, 1)
 
         import json
+
         result = json.loads(completed.stdout)
 
         self.assertEqual(result["status"], "DEGRADED")
@@ -419,9 +410,7 @@ class TestSystemHealth(unittest.IsolatedAsyncioTestCase):
         import sys
 
         env = os.environ.copy()
-        env["INSURANCE_OLLAMA_MODEL"] = (
-            "ALIENTELLIGENCE/insuranceservices:latest"
-        )
+        env["INSURANCE_OLLAMA_MODEL"] = "ALIENTELLIGENCE/insuranceservices:latest"
 
         completed = subprocess.run(
             [sys.executable, "health_checks.py"],
@@ -454,13 +443,9 @@ class TestSystemHealth(unittest.IsolatedAsyncioTestCase):
         from pathlib import Path
 
         env = os.environ.copy()
-        env["INSURANCE_OLLAMA_MODEL"] = (
-            "nonexistent-startup-test:latest"
-        )
+        env["INSURANCE_OLLAMA_MODEL"] = "nonexistent-startup-test:latest"
 
-        agent_path = Path(__file__).with_name(
-            "langgraph_rag_agent.py"
-        )
+        agent_path = Path(__file__).with_name("langgraph_rag_agent.py")
 
         completed = subprocess.run(
             [sys.executable, str(agent_path)],
@@ -488,13 +473,9 @@ class TestSystemHealth(unittest.IsolatedAsyncioTestCase):
         from pathlib import Path
 
         env = os.environ.copy()
-        env["INSURANCE_OLLAMA_MODEL"] = (
-            "ALIENTELLIGENCE/insuranceservices:latest"
-        )
+        env["INSURANCE_OLLAMA_MODEL"] = "ALIENTELLIGENCE/insuranceservices:latest"
 
-        agent_path = Path(__file__).with_name(
-            "langgraph_rag_agent.py"
-        )
+        agent_path = Path(__file__).with_name("langgraph_rag_agent.py")
 
         completed = subprocess.run(
             [sys.executable, str(agent_path)],
@@ -510,6 +491,7 @@ class TestSystemHealth(unittest.IsolatedAsyncioTestCase):
         self.assertIn("MCP tools: 6", completed.stdout)
         self.assertIn("Agent stopped.", completed.stdout)
         self.assertNotIn("Traceback", completed.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

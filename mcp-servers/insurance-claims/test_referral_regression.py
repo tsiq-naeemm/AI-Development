@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 import sys
@@ -29,9 +28,7 @@ async def main():
                 raise RuntimeError("MCP validation tool failed")
 
             content = "\n".join(
-                item.text
-                for item in result.content
-                if item.type == "text"
+                item.text for item in result.content if item.type == "text"
             )
 
             data = json.loads(content)
@@ -45,9 +42,9 @@ async def main():
                 "anatomy",
                 "specialist",
             ):
-                assert data["checks"][check]["finding"] == "PASS", (
-                    f"Unexpected result for {check}"
-                )
+                assert (
+                    data["checks"][check]["finding"] == "PASS"
+                ), f"Unexpected result for {check}"
 
             print("PASS: CLM001 regression test")
 
@@ -61,9 +58,7 @@ async def main():
                 raise RuntimeError("CLM002 validation tool failed")
 
             content = "\n".join(
-                item.text
-                for item in result.content
-                if item.type == "text"
+                item.text for item in result.content if item.type == "text"
             )
 
             data = json.loads(content)
@@ -80,15 +75,14 @@ async def main():
 
             for check, expected in expected_checks.items():
                 actual = data["checks"][check]["finding"]
-                assert actual == expected, (
-                    f"CLM002 {check}: expected {expected}, got {actual}"
-                )
+                assert (
+                    actual == expected
+                ), f"CLM002 {check}: expected {expected}, got {actual}"
 
             assert data["checks"]["anatomy"]["referral_anatomy"] == "LEFT shoulder"
             assert not data["checks"]["anatomy"]["treatment_anatomy"]
 
             print("PASS: CLM002 regression test")
-
 
             # CLM003: No referral found in available evidence.
             result = await session.call_tool(
@@ -100,9 +94,7 @@ async def main():
                 raise RuntimeError("CLM003 validation tool failed")
 
             content = "\n".join(
-                item.text
-                for item in result.content
-                if item.type == "text"
+                item.text for item in result.content if item.type == "text"
             )
 
             data = json.loads(content)
@@ -119,9 +111,9 @@ async def main():
 
             for check, expected in expected_checks.items():
                 actual = data["checks"][check]["finding"]
-                assert actual == expected, (
-                    f"CLM003 {check}: expected {expected}, got {actual}"
-                )
+                assert (
+                    actual == expected
+                ), f"CLM003 {check}: expected {expected}, got {actual}"
 
             # Missing evidence must not be treated as proof
             # that a referral does not exist elsewhere.
@@ -129,7 +121,6 @@ async def main():
             assert "does not prove" in explanation.lower()
 
             print("PASS: CLM003 regression test")
-
 
             # CLM004: Referral and treatment anatomy conflict.
             result = await session.call_tool(
@@ -141,9 +132,7 @@ async def main():
                 raise RuntimeError("CLM004 validation tool failed")
 
             content = "\n".join(
-                item.text
-                for item in result.content
-                if item.type == "text"
+                item.text for item in result.content if item.type == "text"
             )
 
             data = json.loads(content)
@@ -160,9 +149,9 @@ async def main():
 
             for check, expected in expected_checks.items():
                 actual = data["checks"][check]["finding"]
-                assert actual == expected, (
-                    f"CLM004 {check}: expected {expected}, got {actual}"
-                )
+                assert (
+                    actual == expected
+                ), f"CLM004 {check}: expected {expected}, got {actual}"
 
             anatomy = data["checks"]["anatomy"]
 
@@ -174,7 +163,6 @@ async def main():
 
             print("PASS: CLM004 regression test")
 
-
             # CLM999: Claim does not exist in SQLite.
             result = await session.call_tool(
                 "validate_claim_referral",
@@ -185,9 +173,7 @@ async def main():
                 raise RuntimeError("CLM999 MCP tool execution failed")
 
             content = "\n".join(
-                item.text
-                for item in result.content
-                if item.type == "text"
+                item.text for item in result.content if item.type == "text"
             )
 
             data = json.loads(content)
@@ -202,8 +188,6 @@ async def main():
             assert "checks" not in data
 
             print("PASS: CLM999 unknown-claim regression test")
-
-
 
 
 if __name__ == "__main__":

@@ -8,32 +8,29 @@ def test_clm001():
         "checks": {
             "referral_presence": {
                 "finding": "PASS",
-                "explanation": "Referral document is present."
+                "explanation": "Referral document is present.",
             },
             "referral_date": {
                 "finding": "PASS",
                 "explanation": "Referral predates treatment.",
                 "referral_date": "2026-01-05",
                 "treatment_date": "2026-01-09",
-                "source_document_ids": [
-                    "CLM001-DOC02",
-                    "CLM001-DOC03"
-                ]
+                "source_document_ids": ["CLM001-DOC02", "CLM001-DOC03"],
             },
             "anatomy": {
                 "finding": "PASS",
                 "explanation": "Referral and treatment anatomy match.",
                 "referral_anatomy": "RIGHT knee",
-                "treatment_anatomy": "RIGHT knee"
+                "treatment_anatomy": "RIGHT knee",
             },
             "specialist": {
                 "finding": "PASS",
                 "explanation": "Named orthopaedic specialist documented.",
                 "specialist_name": "Dr. A. Malik",
-                "specialist_specialty": "Orthopaedic Specialist"
-            }
+                "specialist_specialty": "Orthopaedic Specialist",
+            },
         },
-        "note": "Evidence validation only; not an insurance approval or denial."
+        "note": "Evidence validation only; not an insurance approval or denial.",
     }
 
     report = format_referral_validation(result)
@@ -52,6 +49,7 @@ def test_clm001():
 
     print("PASS: CLM001 formatter test")
 
+
 def test_clm002():
     result = {
         "claim_id": "CLM002",
@@ -59,28 +57,25 @@ def test_clm002():
         "checks": {
             "referral_presence": {
                 "finding": "PASS",
-                "explanation": "Referral document is present."
+                "explanation": "Referral document is present.",
             },
             "referral_date": {
                 "finding": "PASS",
-                "explanation": "Referral predates treatment."
+                "explanation": "Referral predates treatment.",
             },
             "anatomy": {
                 "finding": "REVIEW",
                 "explanation": "Body part information is missing.",
                 "referral_anatomy": "LEFT shoulder",
                 "treatment_anatomy": "",
-                "source_document_ids": [
-                    "CLM002-DOC02",
-                    "CLM002-DOC03"
-                ]
+                "source_document_ids": ["CLM002-DOC02", "CLM002-DOC03"],
             },
             "specialist": {
                 "finding": "PASS",
-                "explanation": "Named orthopaedic specialist documented."
-            }
+                "explanation": "Named orthopaedic specialist documented.",
+            },
         },
-        "note": "Evidence validation only; not an insurance approval or denial."
+        "note": "Evidence validation only; not an insurance approval or denial.",
     }
 
     report = format_referral_validation(result)
@@ -95,6 +90,7 @@ def test_clm002():
 
     print("PASS: CLM002 formatter test")
 
+
 def test_clm003():
     result = {
         "claim_id": "CLM003",
@@ -105,30 +101,26 @@ def test_clm003():
                 "explanation": (
                     "No referral document found in the available records. "
                     "This does not prove that no referral exists elsewhere."
-                )
+                ),
             },
             "referral_date": {
                 "finding": "REVIEW",
-                "explanation": "No referral available for date comparison."
+                "explanation": "No referral available for date comparison.",
             },
             "anatomy": {
                 "finding": "REVIEW",
-                "explanation": "No referral available for anatomy comparison."
+                "explanation": "No referral available for anatomy comparison.",
             },
             "specialist": {
                 "finding": "REVIEW",
-                "explanation": "No referral available for specialist verification."
-            }
+                "explanation": "No referral available for specialist verification.",
+            },
         },
-        "source_document_ids": [
-            "CLM003-DOC01",
-            "CLM003-DOC02",
-            "CLM003-DOC03"
-        ],
+        "source_document_ids": ["CLM003-DOC01", "CLM003-DOC02", "CLM003-DOC03"],
         "note": (
             "Evidence validation only; not an insurance approval or denial. "
             "Missing evidence may exist elsewhere."
-        )
+        ),
     }
 
     report = format_referral_validation(result)
@@ -155,11 +147,11 @@ def test_clm004():
         "checks": {
             "referral_presence": {
                 "finding": "PASS",
-                "explanation": "Referral document is present."
+                "explanation": "Referral document is present.",
             },
             "referral_date": {
                 "finding": "PASS",
-                "explanation": "Referral predates treatment."
+                "explanation": "Referral predates treatment.",
             },
             "anatomy": {
                 "finding": "REVIEW",
@@ -169,20 +161,17 @@ def test_clm004():
                 ),
                 "referral_anatomy": "LEFT ankle",
                 "treatment_anatomy": "RIGHT ankle",
-                "source_document_ids": [
-                    "CLM004-DOC02",
-                    "CLM004-DOC03"
-                ]
+                "source_document_ids": ["CLM004-DOC02", "CLM004-DOC03"],
             },
             "specialist": {
                 "finding": "PASS",
-                "explanation": "Named orthopaedic specialist documented."
-            }
+                "explanation": "Named orthopaedic specialist documented.",
+            },
         },
         "note": (
             "Evidence validation only; not an insurance approval or denial. "
             "Missing evidence may exist elsewhere."
-        )
+        ),
     }
 
     report = format_referral_validation(result)
@@ -194,20 +183,11 @@ def test_clm004():
     assert "Anatomy: REVIEW" in report
     assert "Specialist: PASS" in report
 
-    assert (
-        "referral specifies LEFT ankle but treatment specifies RIGHT ankle"
-        in report
-    )
+    assert "referral specifies LEFT ankle but treatment specifies RIGHT ankle" in report
 
-    assert (
-        "Supporting documents: CLM004-DOC02, CLM004-DOC03"
-        in report
-    )
+    assert "Supporting documents: CLM004-DOC02, CLM004-DOC03" in report
 
-    assert (
-        "Conclusion: The available evidence requires manual review."
-        in report
-    )
+    assert "Conclusion: The available evidence requires manual review." in report
 
     assert "Note: Evidence validation only" in report
 

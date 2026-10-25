@@ -1,4 +1,3 @@
-
 """Privacy-conscious structured JSON audit logging."""
 
 import json
@@ -7,7 +6,6 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 LOG_FILE = LOG_DIR / "audit.jsonl"

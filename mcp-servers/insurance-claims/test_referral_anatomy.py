@@ -1,4 +1,3 @@
-
 import re
 
 import chromadb
@@ -53,7 +52,6 @@ for claim_id in ["CLM001", "CLM002", "CLM003", "CLM004"]:
         print(f"{claim_id}: REVIEW - No treatment document available.")
         continue
 
-
     if not referrals[0]:
         print(f"{claim_id}: REVIEW - Referral anatomy is not documented.")
         continue
@@ -67,7 +65,4 @@ for claim_id in ["CLM001", "CLM002", "CLM003", "CLM004"]:
         treatments[0],
     )
 
-    print(
-        f"{claim_id}: {result['finding']} "
-        f"- {result['explanation']}"
-    )
+    print(f"{claim_id}: {result['finding']} " f"- {result['explanation']}")

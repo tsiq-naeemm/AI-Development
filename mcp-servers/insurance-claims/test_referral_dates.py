@@ -1,8 +1,6 @@
-
 import chromadb
 
 from referral_validator import validate_referral_date
-
 
 client = chromadb.PersistentClient(path="data/chroma_db")
 collection = client.get_collection("insurance_medical_documents")
@@ -14,13 +12,11 @@ for claim_id in ["CLM001", "CLM002", "CLM003", "CLM004"]:
     )
 
     referrals = [
-        meta for meta in records["metadatas"]
-        if meta["document_type"] == "referral"
+        meta for meta in records["metadatas"] if meta["document_type"] == "referral"
     ]
 
     treatments = [
-        meta for meta in records["metadatas"]
-        if meta["document_type"] == "treatment"
+        meta for meta in records["metadatas"] if meta["document_type"] == "treatment"
     ]
 
     if not referrals:
@@ -38,7 +34,4 @@ for claim_id in ["CLM001", "CLM002", "CLM003", "CLM004"]:
                 treatment["document_date"],
             )
 
-            print(
-                f"{claim_id}: {result['finding']} "
-                f"- {result['explanation']}"
-            )
+            print(f"{claim_id}: {result['finding']} " f"- {result['explanation']}")

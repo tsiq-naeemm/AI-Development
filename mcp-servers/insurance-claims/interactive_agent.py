@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 import sys
@@ -7,7 +6,6 @@ from pathlib import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from ollama import AsyncClient
-
 
 MODEL = "llama3.2"
 
@@ -62,23 +60,23 @@ async def process_question(
             arguments=arguments,
         )
 
-        content = "\n".join(
-            item.text
-            for item in result.content
-            if item.type == "text"
-        )
+        content = "\n".join(item.text for item in result.content if item.type == "text")
 
-        messages.append({
-            "role": "tool",
-            "tool_name": name,
-            "content": json.dumps({
-                "claim_id": arguments.get("claim_id"),
-                "tool": name,
-                "result": content,
-                "source": "Local synthetic insurance claims database",
-                "success": not result.is_error,
-            }),
-        })
+        messages.append(
+            {
+                "role": "tool",
+                "tool_name": name,
+                "content": json.dumps(
+                    {
+                        "claim_id": arguments.get("claim_id"),
+                        "tool": name,
+                        "result": content,
+                        "source": "Local synthetic insurance claims database",
+                        "success": not result.is_error,
+                    }
+                ),
+            }
+        )
 
     final_response = await ollama.chat(
         model=MODEL,
@@ -125,9 +123,7 @@ async def main():
 
             while True:
                 try:
-                    question = await asyncio.to_thread(
-                        input, "You: "
-                    )
+                    question = await asyncio.to_thread(input, "You: ")
 
                     if question.strip().lower() in ("exit", "quit"):
                         print("Agent stopped.")

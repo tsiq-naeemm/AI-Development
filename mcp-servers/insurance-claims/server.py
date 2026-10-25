@@ -1,4 +1,3 @@
-
 from mcp.server import MCPServer
 
 # Initialize the MCP server

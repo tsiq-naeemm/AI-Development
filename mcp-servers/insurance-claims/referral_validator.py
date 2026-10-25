@@ -1,4 +1,3 @@
-
 from datetime import date
 
 
@@ -37,6 +36,7 @@ def validate_referral_date(
         "explanation": explanation,
     }
 
+
 def validate_anatomy(
     referral_body_part: str,
     treatment_body_part: str,
@@ -69,6 +69,7 @@ def validate_anatomy(
         "finding": finding,
         "explanation": explanation,
     }
+
 
 def validate_referring_specialist(
     specialist_name: str,
@@ -104,14 +105,14 @@ def validate_referring_specialist(
         "explanation": explanation,
     }
 
+
 def validate_referral_presence(document_types: list[str]) -> dict:
     """
     Check whether the available claim documents
     include a referral.
     """
     normalized_types = {
-        document_type.strip().lower()
-        for document_type in document_types
+        document_type.strip().lower() for document_type in document_types
     }
 
     if "referral" in normalized_types:
@@ -155,6 +156,7 @@ def combine_validation_results(checks: dict) -> dict:
         "checks": checks,
     }
 
+
 if __name__ == "__main__":
     tests = [
         ("CLM001", "2026-01-05", "2026-01-09"),
@@ -170,12 +172,8 @@ if __name__ == "__main__":
             treatment_date,
         )
 
-        print(
-            f"{claim_id}: {result['finding']} "
-            f"- {result['explanation']}"
-        )
+        print(f"{claim_id}: {result['finding']} " f"- {result['explanation']}")
 
-    
     print("\nAnatomy validation:")
 
     anatomy_tests = [
@@ -189,12 +187,8 @@ if __name__ == "__main__":
             referral_anatomy,
             treatment_anatomy,
         )
-        print(
-            f"{claim_id}: {result['finding']} "
-            f"- {result['explanation']}"
-        )
+        print(f"{claim_id}: {result['finding']} " f"- {result['explanation']}")
 
-    
     print("\nSpecialist validation:")
 
     specialist_tests = [
@@ -207,12 +201,7 @@ if __name__ == "__main__":
 
     for claim_id, name, specialty in specialist_tests:
         result = validate_referring_specialist(name, specialty)
-        print(
-            f"{claim_id}: {result['finding']} "
-            f"- {result['explanation']}"
-        )
-
-
+        print(f"{claim_id}: {result['finding']} " f"- {result['explanation']}")
 
     print("\nReferral presence validation:")
 
@@ -224,11 +213,7 @@ if __name__ == "__main__":
 
     for claim_id, document_types in presence_tests:
         result = validate_referral_presence(document_types)
-        print(
-            f"{claim_id}: {result['finding']} "
-            f"- {result['explanation']}"
-        )
-
+        print(f"{claim_id}: {result['finding']} " f"- {result['explanation']}")
 
     print("\nCombined validation:")
 

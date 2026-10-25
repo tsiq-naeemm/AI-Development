@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 import sys
@@ -55,9 +54,7 @@ async def test_clm001():
                 and message.name == "validate_claim_referral"
             ]
 
-            assert validation_messages, (
-                "Agent did not call validate_claim_referral"
-            )
+            assert validation_messages, "Agent did not call validate_claim_referral"
 
             payload = json.loads(validation_messages[-1].content)
 
@@ -77,6 +74,7 @@ async def test_clm001():
             assert "Conclusion: The available evidence supports" in report
 
             print("PASS: CLM001 end-to-end agent test")
+
 
 async def test_clm002():
     server_path = Path(__file__).with_name("rag_server.py")
@@ -117,9 +115,9 @@ async def test_clm002():
                 and message.name == "validate_claim_referral"
             ]
 
-            assert validation_messages, (
-                "Agent did not call validate_claim_referral for CLM002"
-            )
+            assert (
+                validation_messages
+            ), "Agent did not call validate_claim_referral for CLM002"
 
             payload = json.loads(validation_messages[-1].content)
 
@@ -140,7 +138,9 @@ async def test_clm002():
             for check, expected in expected_checks.items():
                 assert validation["checks"][check]["finding"] == expected
 
-            assert validation["checks"]["anatomy"]["referral_anatomy"] == "LEFT shoulder"
+            assert (
+                validation["checks"]["anatomy"]["referral_anatomy"] == "LEFT shoulder"
+            )
             assert not validation["checks"]["anatomy"]["treatment_anatomy"]
 
             report = get_referral_validation_report(result["messages"])
@@ -148,9 +148,12 @@ async def test_clm002():
             assert report is not None
             assert "Overall finding: REVIEW" in report
             assert "Body part information is missing" in report
-            assert "Conclusion: The available evidence requires manual review." in report
+            assert (
+                "Conclusion: The available evidence requires manual review." in report
+            )
 
             print("PASS: CLM002 end-to-end agent test")
+
 
 async def test_clm003():
     server_path = Path(__file__).with_name("rag_server.py")
@@ -191,9 +194,9 @@ async def test_clm003():
                 and message.name == "validate_claim_referral"
             ]
 
-            assert validation_messages, (
-                "Agent did not call validate_claim_referral for CLM003"
-            )
+            assert (
+                validation_messages
+            ), "Agent did not call validate_claim_referral for CLM003"
 
             payload = json.loads(validation_messages[-1].content)
 
@@ -210,13 +213,11 @@ async def test_clm003():
                 "anatomy",
                 "specialist",
             ):
-                assert validation["checks"][check]["finding"] == "REVIEW", (
-                    f"Unexpected finding for {check}"
-                )
+                assert (
+                    validation["checks"][check]["finding"] == "REVIEW"
+                ), f"Unexpected finding for {check}"
 
-            explanation = validation["checks"][
-                "referral_presence"
-            ]["explanation"]
+            explanation = validation["checks"]["referral_presence"]["explanation"]
 
             assert "does not prove" in explanation.lower()
 
@@ -228,11 +229,11 @@ async def test_clm003():
             assert "No referral document found" in report
             assert "does not prove" in report.lower()
             assert (
-                "Conclusion: The available evidence requires manual review."
-                in report
+                "Conclusion: The available evidence requires manual review." in report
             )
 
             print("PASS: CLM003 end-to-end agent test")
+
 
 async def test_clm004():
     server_path = Path(__file__).with_name("rag_server.py")
@@ -273,9 +274,9 @@ async def test_clm004():
                 and message.name == "validate_claim_referral"
             ]
 
-            assert validation_messages, (
-                "Agent did not call validate_claim_referral for CLM004"
-            )
+            assert (
+                validation_messages
+            ), "Agent did not call validate_claim_referral for CLM004"
 
             payload = json.loads(validation_messages[-1].content)
 
@@ -295,9 +296,9 @@ async def test_clm004():
 
             for check, expected in expected_checks.items():
                 actual = validation["checks"][check]["finding"]
-                assert actual == expected, (
-                    f"CLM004 {check}: expected {expected}, got {actual}"
-                )
+                assert (
+                    actual == expected
+                ), f"CLM004 {check}: expected {expected}, got {actual}"
 
             anatomy = validation["checks"]["anatomy"]
 
@@ -316,11 +317,11 @@ async def test_clm004():
             assert "CLM004-DOC02" in report
             assert "CLM004-DOC03" in report
             assert (
-                "Conclusion: The available evidence requires manual review."
-                in report
+                "Conclusion: The available evidence requires manual review." in report
             )
 
             print("PASS: CLM004 end-to-end agent test")
+
 
 async def test_invalid_claim_id():
     server_path = Path(__file__).with_name("rag_server.py")
@@ -361,9 +362,7 @@ async def test_invalid_claim_id():
                 and message.name == "validate_claim_referral"
             ]
 
-            assert validation_messages, (
-                "Agent did not attempt referral validation"
-            )
+            assert validation_messages, "Agent did not attempt referral validation"
 
             payload = json.loads(validation_messages[-1].content)
 
@@ -383,6 +382,7 @@ async def test_invalid_claim_id():
             assert "Conclusion: No referral validation was performed." in report
 
             print("PASS: ABC123 invalid-claim-ID end-to-end test")
+
 
 async def test_unknown_claim_id():
     server_path = Path(__file__).with_name("rag_server.py")
@@ -423,9 +423,9 @@ async def test_unknown_claim_id():
                 and message.name == "validate_claim_referral"
             ]
 
-            assert validation_messages, (
-                "Agent did not call validate_claim_referral for CLM999"
-            )
+            assert (
+                validation_messages
+            ), "Agent did not call validate_claim_referral for CLM999"
 
             payload = json.loads(validation_messages[-1].content)
 
@@ -446,6 +446,7 @@ async def test_unknown_claim_id():
             assert "Conclusion: No referral validation was performed." in report
 
             print("PASS: CLM999 unknown-claim end-to-end test")
+
 
 async def test_missing_claim_id():
     server_path = Path(__file__).with_name("rag_server.py")
@@ -471,9 +472,7 @@ async def test_missing_claim_id():
                 {
                     "messages": [
                         SystemMessage(content=SYSTEM_PROMPT),
-                        HumanMessage(
-                            content="Validate the specialist referral."
-                        ),
+                        HumanMessage(content="Validate the specialist referral."),
                     ]
                 },
                 config={"recursion_limit": 13},
@@ -486,9 +485,7 @@ async def test_missing_claim_id():
                 if isinstance(message, ToolMessage)
             ]
 
-            assert not tool_messages, (
-                "MCP tool was called without an explicit claim ID"
-            )
+            assert not tool_messages, "MCP tool was called without an explicit claim ID"
 
             response = result["messages"][-1].content
 
@@ -496,6 +493,7 @@ async def test_missing_claim_id():
             assert "CLM001" in response
 
             print("PASS: Missing claim ID end-to-end test")
+
 
 async def main():
     await test_clm001()
@@ -505,6 +503,7 @@ async def main():
     await test_invalid_claim_id()
     await test_unknown_claim_id()
     await test_missing_claim_id()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

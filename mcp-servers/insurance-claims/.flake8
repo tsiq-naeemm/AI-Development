@@ -1,0 +1,6 @@
+[flake8]
+max-line-length = 88
+# Black owns wrapping; it deliberately leaves some strings/comments long.
+# E203 conflicts with Black's slice formatting.
+extend-ignore = E203,E501
+extend-exclude = .venv,data,logs,__pycache__

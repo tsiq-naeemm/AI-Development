@@ -10,15 +10,14 @@ from langgraph_rag_agent import (
     classify_agent_error,
 )
 
+
 class TestAgentReliability(unittest.IsolatedAsyncioTestCase):
 
     async def test_ollama_timeout_propagates(self):
         """A timeout from Ollama must propagate through LangGraph."""
 
         mock_ollama = AsyncMock()
-        mock_ollama.chat.side_effect = TimeoutError(
-            "SIMULATED_TIMEOUT"
-        )
+        mock_ollama.chat.side_effect = TimeoutError("SIMULATED_TIMEOUT")
 
         graph = create_agent(
             session=None,
@@ -30,9 +29,7 @@ class TestAgentReliability(unittest.IsolatedAsyncioTestCase):
             await graph.ainvoke(
                 {
                     "messages": [
-                        HumanMessage(
-                            content="Explain the insurance claims process."
-                        )
+                        HumanMessage(content="Explain the insurance claims process.")
                     ]
                 },
                 config={"recursion_limit": RECURSION_LIMIT},
@@ -44,9 +41,7 @@ class TestAgentReliability(unittest.IsolatedAsyncioTestCase):
         """A non-timeout Ollama failure preserves its exception type."""
 
         mock_ollama = AsyncMock()
-        mock_ollama.chat.side_effect = ConnectionError(
-            "SIMULATED_CONNECTION_FAILURE"
-        )
+        mock_ollama.chat.side_effect = ConnectionError("SIMULATED_CONNECTION_FAILURE")
 
         graph = create_agent(
             session=None,
@@ -58,9 +53,7 @@ class TestAgentReliability(unittest.IsolatedAsyncioTestCase):
             await graph.ainvoke(
                 {
                     "messages": [
-                        HumanMessage(
-                            content="Explain the insurance claims process."
-                        )
+                        HumanMessage(content="Explain the insurance claims process.")
                     ]
                 },
                 config={"recursion_limit": RECURSION_LIMIT},
@@ -110,14 +103,12 @@ class TestAgentReliability(unittest.IsolatedAsyncioTestCase):
             classify_agent_error(httpx.ConnectError("Simulated connection failure")),
             "ConnectError",
         )
-    
+
     async def test_httpx_timeout_propagates(self):
         """An HTTPX read timeout propagates through LangGraph."""
 
         mock_ollama = AsyncMock()
-        mock_ollama.chat.side_effect = httpx.ReadTimeout(
-            "SIMULATED_HTTPX_TIMEOUT"
-        )
+        mock_ollama.chat.side_effect = httpx.ReadTimeout("SIMULATED_HTTPX_TIMEOUT")
 
         graph = create_agent(
             session=None,
@@ -129,9 +120,7 @@ class TestAgentReliability(unittest.IsolatedAsyncioTestCase):
             await graph.ainvoke(
                 {
                     "messages": [
-                        HumanMessage(
-                            content="Explain the insurance claims process."
-                        )
+                        HumanMessage(content="Explain the insurance claims process.")
                     ]
                 },
                 config={"recursion_limit": RECURSION_LIMIT},
@@ -143,6 +132,7 @@ class TestAgentReliability(unittest.IsolatedAsyncioTestCase):
             classify_agent_error(caught.exception),
             "OLLAMA_TIMEOUT",
         )
+
 
 if __name__ == "__main__":
     unittest.main()

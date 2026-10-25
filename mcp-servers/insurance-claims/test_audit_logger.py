@@ -1,7 +1,5 @@
-
 """Automated tests for structured audit logging."""
 
-from asyncio import events
 import json
 import tempfile
 import unittest
@@ -19,8 +17,10 @@ class TestAuditLogger(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             log_file = Path(tmpdir) / "audit.jsonl"
 
-            with patch.object(audit_logger, "LOG_DIR", Path(tmpdir)), \
-                 patch.object(audit_logger, "LOG_FILE", log_file):
+            with (
+                patch.object(audit_logger, "LOG_DIR", Path(tmpdir)),
+                patch.object(audit_logger, "LOG_FILE", log_file),
+            ):
 
                 logger = audit_logger.get_audit_logger()
 
@@ -46,19 +46,11 @@ class TestAuditLogger(unittest.TestCase):
                     for handler in logger.handlers:
                         handler.flush()
 
-                    record = json.loads(
-                        log_file.read_text(encoding="utf-8").strip()
-                    )
+                    record = json.loads(log_file.read_text(encoding="utf-8").strip())
 
-                    self.assertEqual(
-                        record["event"], "VALIDATION_STARTED"
-                    )
-                    self.assertEqual(
-                        record["claim_id"], "CLM001"
-                    )
-                    self.assertEqual(
-                        record["request_id"], request_id
-                    )
+                    self.assertEqual(record["event"], "VALIDATION_STARTED")
+                    self.assertEqual(record["claim_id"], "CLM001")
+                    self.assertEqual(record["request_id"], request_id)
                     self.assertEqual(record["level"], "INFO")
                     self.assertIn("timestamp", record)
 

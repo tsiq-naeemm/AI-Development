@@ -1,10 +1,7 @@
-
-import json
 import sqlite3
 from pathlib import Path
 
 from mcp.server import MCPServer
-
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "data" / "insurance_claims.db"
@@ -15,8 +12,7 @@ server = MCPServer("InsuranceClaimsSQLite")
 def get_connection():
     if not DB_PATH.is_file():
         raise FileNotFoundError(
-            f"Database not found: {DB_PATH}. "
-            "Run python init_database.py first."
+            f"Database not found: {DB_PATH}. " "Run python init_database.py first."
         )
 
     conn = sqlite3.connect(DB_PATH)

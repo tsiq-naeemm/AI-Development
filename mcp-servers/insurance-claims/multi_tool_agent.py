@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 import sys
@@ -7,7 +6,6 @@ from pathlib import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from ollama import AsyncClient
-
 
 MODEL = "llama3.2"
 MAX_ITERATIONS = 6
@@ -45,10 +43,7 @@ async def process_question(
         {"role": "user", "content": question},
     ]
 
-    available_tools = {
-        tool["function"]["name"]
-        for tool in tools
-    }
+    available_tools = {tool["function"]["name"] for tool in tools}
 
     tool_calls_count = 0
 
@@ -66,10 +61,7 @@ async def process_question(
 
         if not response.message.tool_calls:
             print("\nAgent:", response.message.content)
-            print(
-                f"\n[Agent] Total MCP calls: "
-                f"{tool_calls_count}"
-            )
+            print(f"\n[Agent] Total MCP calls: " f"{tool_calls_count}")
             return
 
         for tool_call in response.message.tool_calls:
@@ -79,13 +71,13 @@ async def process_question(
 
             if name not in available_tools:
                 print(f"[Agent] Unknown tool: {name}")
-                messages.append({
-                    "role": "tool",
-                    "tool_name": name,
-                    "content": json.dumps({
-                        "error": "Unknown MCP tool"
-                    }),
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_name": name,
+                        "content": json.dumps({"error": "Unknown MCP tool"}),
+                    }
+                )
                 continue
 
             print(f"[MCP] Calling: {name}")
@@ -100,18 +92,14 @@ async def process_question(
                 tool_calls_count += 1
 
                 content = "\n".join(
-                    item.text
-                    for item in result.content
-                    if item.type == "text"
+                    item.text for item in result.content if item.type == "text"
                 )
 
                 tool_response = {
                     "tool": name,
                     "arguments": arguments,
                     "result": content,
-                    "source": (
-                        "Local synthetic insurance claims database"
-                    ),
+                    "source": ("Local synthetic insurance claims database"),
                     "success": not result.is_error,
                 }
 
@@ -127,16 +115,15 @@ async def process_question(
 
                 print(f"[MCP] Error: {exc}")
 
-            messages.append({
-                "role": "tool",
-                "tool_name": name,
-                "content": json.dumps(tool_response),
-            })
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_name": name,
+                    "content": json.dumps(tool_response),
+                }
+            )
 
-    print(
-        f"\n[Agent] Maximum reasoning iterations "
-        f"({MAX_ITERATIONS}) reached."
-    )
+    print(f"\n[Agent] Maximum reasoning iterations " f"({MAX_ITERATIONS}) reached.")
     print("[Agent] Stopping to prevent an infinite loop.")
 
 
@@ -180,13 +167,9 @@ async def main():
 
             while True:
                 try:
-                    question = await asyncio.to_thread(
-                        input, "You: "
-                    )
+                    question = await asyncio.to_thread(input, "You: ")
 
-                    if question.strip().lower() in (
-                        "exit", "quit"
-                    ):
+                    if question.strip().lower() in ("exit", "quit"):
                         print("Agent stopped.")
                         break
 

@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 import sys
@@ -16,7 +15,6 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from ollama import AsyncClient
-
 
 MODEL = "llama3.2"
 MAX_MODEL_CALLS = 6
@@ -46,16 +44,20 @@ def to_ollama_messages(messages):
 
     for message in messages:
         if isinstance(message, SystemMessage):
-            converted.append({
-                "role": "system",
-                "content": message.content,
-            })
+            converted.append(
+                {
+                    "role": "system",
+                    "content": message.content,
+                }
+            )
 
         elif isinstance(message, HumanMessage):
-            converted.append({
-                "role": "user",
-                "content": message.content,
-            })
+            converted.append(
+                {
+                    "role": "user",
+                    "content": message.content,
+                }
+            )
 
         elif isinstance(message, AIMessage):
             item = {
@@ -77,11 +79,13 @@ def to_ollama_messages(messages):
             converted.append(item)
 
         elif isinstance(message, ToolMessage):
-            converted.append({
-                "role": "tool",
-                "tool_name": message.name,
-                "content": message.content,
-            })
+            converted.append(
+                {
+                    "role": "tool",
+                    "tool_name": message.name,
+                    "content": message.content,
+                }
+            )
 
     return converted
 
@@ -89,10 +93,7 @@ def to_ollama_messages(messages):
 def create_agent(session, ollama, discovered_tools):
     """Construct the LangGraph workflow."""
 
-    tool_schemas = {
-        tool.name: tool.input_schema
-        for tool in discovered_tools
-    }
+    tool_schemas = {tool.name: tool.input_schema for tool in discovered_tools}
 
     ollama_tools = [
         {
@@ -119,15 +120,15 @@ def create_agent(session, ollama, discovered_tools):
 
         calls = []
 
-        for index, call in enumerate(
-            response.message.tool_calls or []
-        ):
-            calls.append({
-                "name": call.function.name,
-                "args": call.function.arguments,
-                "id": f"call_{index}_{len(state['messages'])}",
-                "type": "tool_call",
-            })
+        for index, call in enumerate(response.message.tool_calls or []):
+            calls.append(
+                {
+                    "name": call.function.name,
+                    "args": call.function.arguments,
+                    "id": f"call_{index}_{len(state['messages'])}",
+                    "type": "tool_call",
+                }
+            )
 
         message = AIMessage(
             content=response.message.content or "",
@@ -230,15 +231,15 @@ def create_agent(session, ollama, discovered_tools):
                         )
 
                         content = "\n".join(
-                            item.text
-                            for item in result.content
-                            if item.type == "text"
+                            item.text for item in result.content if item.type == "text"
                         )
 
-                        payload.update({
-                            "result": content,
-                            "success": not result.is_error,
-                        })
+                        payload.update(
+                            {
+                                "result": content,
+                                "success": not result.is_error,
+                            }
+                        )
 
                         if payload["success"]:
                             cache[key] = payload
@@ -321,13 +322,9 @@ async def main():
 
             while True:
                 try:
-                    question = await asyncio.to_thread(
-                        input, "You: "
-                    )
+                    question = await asyncio.to_thread(input, "You: ")
 
-                    if question.strip().lower() in (
-                        "exit", "quit"
-                    ):
+                    if question.strip().lower() in ("exit", "quit"):
                         print("Agent stopped.")
                         break
 

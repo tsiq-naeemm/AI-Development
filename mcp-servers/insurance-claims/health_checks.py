@@ -1,5 +1,3 @@
-from unittest import result
-
 from ollama import AsyncClient
 import sys
 from pathlib import Path
@@ -25,19 +23,14 @@ async def check_ollama_health(
             "error_code": type(exc).__name__,
         }
 
-    installed_models = {
-        model.model for model in response.models
-    }
+    installed_models = {model.model for model in response.models}
 
     return {
         "service": "ollama",
-        "status": (
-            "HEALTHY"
-            if model_name in installed_models
-            else "MODEL_NOT_FOUND"
-        ),
+        "status": ("HEALTHY" if model_name in installed_models else "MODEL_NOT_FOUND"),
         "model": model_name,
     }
+
 
 async def check_mcp_health() -> dict:
     """Check MCP server connectivity and required tool availability."""
@@ -82,6 +75,7 @@ async def check_mcp_health() -> dict:
             "error_code": type(exc).__name__,
         }
 
+
 async def check_system_health(
     model_name: str,
     timeout: float = 120.0,
@@ -125,6 +119,4 @@ if __name__ == "__main__":
         print(json.dumps(result, indent=2))
         return 0 if result["status"] == "HEALTHY" else 1
 
-    
     raise SystemExit(asyncio.run(main()))
-
