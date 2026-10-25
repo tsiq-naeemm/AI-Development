@@ -81,3 +81,33 @@ async def check_mcp_health() -> dict:
             "error_code": type(exc).__name__,
         }
 
+async def check_system_health(
+    model_name: str,
+    timeout: float = 120.0,
+) -> dict:
+    """Return the combined Ollama and MCP system health."""
+
+    ollama_result = await check_ollama_health(
+        model_name=model_name,
+        timeout=timeout,
+    )
+
+    mcp_result = await check_mcp_health()
+
+    return {
+        "status": (
+            "HEALTHY"
+            if (
+                ollama_result["status"] == "HEALTHY"
+                and mcp_result["status"] == "HEALTHY"
+            )
+            else "DEGRADED"
+        ),
+        "services": {
+            "ollama": ollama_result,
+            "mcp": mcp_result,
+        },
+    }
+
+
+

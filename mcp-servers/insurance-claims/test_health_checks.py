@@ -2,7 +2,11 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from health_checks import check_ollama_health, check_mcp_health
+from health_checks import (
+    check_ollama_health,
+    check_mcp_health,
+    check_system_health,
+)
 
 
 class TestOllamaHealth(unittest.IsolatedAsyncioTestCase):
@@ -152,6 +156,227 @@ class TestMCPHealth(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(
             "SIMULATED_MCP_CONNECTION_FAILURE",
             str(result),
+        )
+
+class TestSystemHealth(unittest.IsolatedAsyncioTestCase):
+
+    async def test_all_services_healthy(self):
+        """Combined health is HEALTHY when both services are healthy."""
+
+        ollama_result = {
+            "service": "ollama",
+            "status": "HEALTHY",
+            "model": "llama3.2:latest",
+        }
+
+        mcp_result = {
+            "service": "mcp",
+            "status": "HEALTHY",
+            "tool_count": 6,
+            "missing_tools": [],
+        }
+
+        with (
+            patch(
+                "health_checks.check_ollama_health",
+                new_callable=AsyncMock,
+                return_value=ollama_result,
+            ) as mock_ollama,
+            patch(
+                "health_checks.check_mcp_health",
+                new_callable=AsyncMock,
+                return_value=mcp_result,
+            ) as mock_mcp,
+        ):
+            result = await check_system_health(
+                model_name="llama3.2:latest",
+                timeout=120.0,
+            )
+
+        self.assertEqual(result["status"], "HEALTHY")
+        self.assertEqual(result["services"]["ollama"], ollama_result)
+        self.assertEqual(result["services"]["mcp"], mcp_result)
+
+        mock_ollama.assert_awaited_once_with(
+            model_name="llama3.2:latest",
+            timeout=120.0,
+        )
+        mock_mcp.assert_awaited_once_with()
+
+    async def test_ollama_unavailable(self):
+        """System is DEGRADED when Ollama is unavailable."""
+
+        ollama_result = {
+            "service": "ollama",
+            "status": "UNAVAILABLE",
+            "error_code": "ConnectError",
+        }
+
+        mcp_result = {
+            "service": "mcp",
+            "status": "HEALTHY",
+            "tool_count": 6,
+            "missing_tools": [],
+        }
+
+        with (
+            patch(
+                "health_checks.check_ollama_health",
+                new_callable=AsyncMock,
+                return_value=ollama_result,
+            ),
+            patch(
+                "health_checks.check_mcp_health",
+                new_callable=AsyncMock,
+                return_value=mcp_result,
+            ),
+        ):
+            result = await check_system_health(
+                model_name="llama3.2:latest",
+                timeout=120.0,
+            )
+
+        self.assertEqual(result["status"], "DEGRADED")
+        self.assertEqual(
+            result["services"]["ollama"]["status"],
+            "UNAVAILABLE",
+        )
+        self.assertEqual(
+            result["services"]["mcp"]["status"],
+            "HEALTHY",
+        )
+
+    async def test_mcp_unavailable(self):
+        """System is DEGRADED when MCP is unavailable."""
+
+        ollama_result = {
+            "service": "ollama",
+            "status": "HEALTHY",
+            "model": "llama3.2:latest",
+        }
+
+        mcp_result = {
+            "service": "mcp",
+            "status": "UNAVAILABLE",
+            "error_code": "ConnectionError",
+        }
+
+        with (
+            patch(
+                "health_checks.check_ollama_health",
+                new_callable=AsyncMock,
+                return_value=ollama_result,
+            ),
+            patch(
+                "health_checks.check_mcp_health",
+                new_callable=AsyncMock,
+                return_value=mcp_result,
+            ),
+        ):
+            result = await check_system_health(
+                model_name="llama3.2:latest",
+                timeout=120.0,
+            )
+
+        self.assertEqual(result["status"], "DEGRADED")
+        self.assertEqual(
+            result["services"]["ollama"]["status"],
+            "HEALTHY",
+        )
+        self.assertEqual(
+            result["services"]["mcp"]["status"],
+            "UNAVAILABLE",
+        )
+
+    async def test_ollama_model_missing(self):
+        """System is DEGRADED when the configured model is missing."""
+
+        ollama_result = {
+            "service": "ollama",
+            "status": "MODEL_NOT_FOUND",
+            "model": "missing-model:latest",
+        }
+
+        mcp_result = {
+            "service": "mcp",
+            "status": "HEALTHY",
+            "tool_count": 6,
+            "missing_tools": [],
+        }
+
+        with (
+            patch(
+                "health_checks.check_ollama_health",
+                new_callable=AsyncMock,
+                return_value=ollama_result,
+            ),
+            patch(
+                "health_checks.check_mcp_health",
+                new_callable=AsyncMock,
+                return_value=mcp_result,
+            ),
+        ):
+            result = await check_system_health(
+                model_name="missing-model:latest",
+                timeout=120.0,
+            )
+
+        self.assertEqual(result["status"], "DEGRADED")
+        self.assertEqual(
+            result["services"]["ollama"]["status"],
+            "MODEL_NOT_FOUND",
+        )
+        self.assertEqual(
+            result["services"]["mcp"]["status"],
+            "HEALTHY",
+        )
+
+    async def test_mcp_tools_missing(self):
+        """System is DEGRADED when required MCP tools are missing."""
+
+        ollama_result = {
+            "service": "ollama",
+            "status": "HEALTHY",
+            "model": "llama3.2:latest",
+        }
+
+        mcp_result = {
+            "service": "mcp",
+            "status": "TOOLS_MISSING",
+            "tool_count": 2,
+            "missing_tools": [
+                "get_claim_amount",
+                "get_claim_medical_evidence",
+                "list_open_claims",
+                "search_medical_documents",
+            ],
+        }
+
+        with (
+            patch(
+                "health_checks.check_ollama_health",
+                new_callable=AsyncMock,
+                return_value=ollama_result,
+            ),
+            patch(
+                "health_checks.check_mcp_health",
+                new_callable=AsyncMock,
+                return_value=mcp_result,
+            ),
+        ):
+            result = await check_system_health(
+                model_name="llama3.2:latest",
+                timeout=120.0,
+            )
+
+        self.assertEqual(result["status"], "DEGRADED")
+        self.assertEqual(
+            result["services"]["mcp"]["status"],
+            "TOOLS_MISSING",
+        )
+        self.assertEqual(
+            result["services"]["ollama"]["status"],
+            "HEALTHY",
         )
 
 
